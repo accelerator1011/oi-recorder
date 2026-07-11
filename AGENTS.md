@@ -16,6 +16,20 @@ pnpm build
 
 ```bash
 pnpm lint
+pnpm lint:fix
+```
+
+## Format
+
+```bash
+pnpm format
+pnpm format:check
+```
+
+## Type Check
+
+```bash
+pnpm type-check
 ```
 
 ## Tech Stack
@@ -30,6 +44,8 @@ pnpm lint
 - vite-plugin-pwa
 - sonner (toasts)
 - Radix UI primitives (dialog, dropdown-menu, select, etc.)
+- Prettier + prettier-plugin-tailwindcss (formatting)
+- Oxlint (linting)
 
 ## Project Structure
 
