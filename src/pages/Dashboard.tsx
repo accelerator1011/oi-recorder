@@ -54,7 +54,7 @@ function Dashboard() {
     const totalProblems = problems.length
     const totalAttempts = attempts.length
     const totalTimeMin = attempts.reduce((s, a) => s + a.timeSpentMin, 0)
-    const todoCount = attempts.filter((a) => a.status === '进行中').length
+    const todoCount = attempts.filter((a) => a.status !== 'AC').length
     const acCount = attempts.filter((a) => a.status === 'AC').length
 
     const diffCounts: Record<number, number> = {}
@@ -72,6 +72,8 @@ function Dashboard() {
     }
 
     for (const a of attempts) {
+      if (a.status !== 'AC') continue
+
       const p = problemMap.get(a.problemId)
       if (p) {
         diffCounts[p.difficulty] = (diffCounts[p.difficulty] ?? 0) + 1

@@ -45,7 +45,7 @@ function RecordForm() {
   const [editingProblemId, setEditingProblemId] = useState<number | undefined>(undefined)
   const [date, setDate] = useState(() => toLocalDateString(new Date()))
   const [timeSpentMin, setTimeSpentMin] = useState(0)
-  const [status, setStatus] = useState<Status>('进行中')
+  const [status, setStatus] = useState<Status>('AC')
   const [language, setLanguage] = useState<Language>(defaultLanguage)
   const [code, setCode] = useState('')
   const [notes, setNotes] = useState('')
