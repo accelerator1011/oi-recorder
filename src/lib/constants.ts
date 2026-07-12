@@ -13,7 +13,7 @@ export const DIFFICULTY_MAP: Record<Difficulty, { label: string; color: string }
   8: { label: 'NOI/NOI+/CTS', color: '#1e3a8a' },
 }
 
-export const STATUS_OPTIONS: Status[] = ['AC', '部分分', 'WA', 'TLE', 'MLE', 'RE', 'CE', '进行中']
+export const STATUS_OPTIONS: Status[] = ['AC', '部分分', 'WA', 'TLE', 'MLE', 'RE', 'CE']
 
 export const STATUS_COLORS: Record<Status, string> = {
   AC: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
