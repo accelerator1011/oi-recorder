@@ -30,7 +30,7 @@
     "lint:fix": "oxlint --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{json,md}\"",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc -b --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
