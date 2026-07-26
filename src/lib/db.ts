@@ -142,7 +142,18 @@ export async function updateAttempt(
 }
 
 export async function deleteAttempt(id: number): Promise<void> {
-  await db.attempts.delete(id)
+  await db.transaction('rw', db.attempts, db.problems, db.problemTags, async () => {
+    const attempt = await db.attempts.get(id)
+    if (!attempt) return
+
+    await db.attempts.delete(id)
+    const remainingAttempts = await db.attempts.where('problemId').equals(attempt.problemId).count()
+
+    if (remainingAttempts === 0) {
+      await db.problemTags.where('problemId').equals(attempt.problemId).delete()
+      await db.problems.delete(attempt.problemId)
+    }
+  })
 }
 
 export async function getAttempt(id: number): Promise<Attempt | undefined> {

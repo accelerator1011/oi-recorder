@@ -50,7 +50,8 @@ function Sidebar() {
       className={cn(
         'fixed left-0 top-0 h-full border-r border-border bg-background',
         'z-30 flex flex-col overflow-hidden transition-all duration-200',
-        sidebarOpen ? 'w-56' : 'w-16'
+        'w-16',
+        sidebarOpen ? 'sm:w-56' : 'sm:w-16'
       )}
     >
       <div className="flex h-14 shrink-0 items-center border-b border-border px-[20px]">
@@ -60,7 +61,7 @@ function Sidebar() {
               <Code2 className="h-6 w-6 shrink-0" />
               <span
                 className={cn(
-                  'overflow-hidden whitespace-nowrap text-sm font-semibold tracking-tight transition-all duration-200',
+                  'hidden overflow-hidden whitespace-nowrap text-sm font-semibold tracking-tight transition-all duration-200 sm:inline',
                   sidebarOpen ? 'ml-3 max-w-60 opacity-100' : 'ml-0 max-w-0 opacity-0'
                 )}
               >
@@ -93,7 +94,7 @@ function Sidebar() {
                   <Icon className="h-5 w-5 shrink-0" />
                   <span
                     className={cn(
-                      'overflow-hidden whitespace-nowrap transition-all duration-200',
+                      'hidden overflow-hidden whitespace-nowrap transition-all duration-200 sm:inline',
                       sidebarOpen ? 'ml-3 max-w-60 opacity-100' : 'ml-0 max-w-0 opacity-0'
                     )}
                   >
@@ -131,7 +132,7 @@ function Sidebar() {
               </AnimatePresence>
               <span
                 className={cn(
-                  'overflow-hidden whitespace-nowrap transition-all duration-200',
+                  'hidden overflow-hidden whitespace-nowrap transition-all duration-200 sm:inline',
                   sidebarOpen ? 'ml-3 max-w-60 opacity-100' : 'ml-0 max-w-0 opacity-0'
                 )}
               >
@@ -152,7 +153,7 @@ function Sidebar() {
               onClick={toggleSidebar}
               aria-label="切换侧边栏"
               aria-expanded={sidebarOpen}
-              className="w-full justify-start px-[14px] text-muted-foreground hover:text-foreground"
+              className="hidden w-full justify-start px-[14px] text-muted-foreground hover:text-foreground sm:flex"
             >
               <motion.span
                 initial={false}

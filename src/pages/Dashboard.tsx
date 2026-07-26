@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { BookOpen, CheckCircle, Clock, ListTodo } from 'lucide-react'
@@ -7,6 +7,7 @@ import {
   Pie,
   Cell,
   Tooltip,
+  type TooltipContentProps,
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -32,11 +33,49 @@ import { Button } from '@/components/ui/button'
 import EmptyState from '@/components/EmptyState'
 
 const CHART_CONFIG = {
-  grid: { strokeDasharray: '3 3', stroke: 'hsl(var(--border))', opacity: 0.5 },
+  grid: { strokeDasharray: '3 3', stroke: 'hsl(var(--border))' },
   axis: {
     tick: { fontSize: 12, fill: 'hsl(var(--muted-foreground))' },
     stroke: 'hsl(var(--border))',
   },
+}
+
+function ChartTooltip({ active, label, payload }: TooltipContentProps) {
+  if (!active || !payload?.length) return null
+
+  return (
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg">
+      {label !== undefined && label !== '' && (
+        <p className="mb-1 font-medium text-muted-foreground">{label}</p>
+      )}
+      <div className="space-y-1">
+        {payload.map((item) => (
+          <div
+            key={`${String(item.dataKey)}-${item.name}`}
+            className="flex min-w-24 items-center justify-between gap-4"
+          >
+            <span className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: item.color }}
+              />
+              {item.name}
+            </span>
+            <span className="font-mono font-medium tabular-nums">{item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ChartEmpty({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-border">
+      <p className="text-sm text-muted-foreground">{children}</p>
+    </div>
+  )
 }
 
 function Dashboard() {
@@ -51,7 +90,7 @@ function Dashboard() {
     const problemMap = new Map(problems.map((p) => [p.id!, p]))
     const tagMap = new Map(allTags.map((t) => [t.id!, t]))
 
-    const totalProblems = problems.length
+    const totalProblems = new Set(attempts.map((attempt) => attempt.problemId)).size
     const totalAttempts = attempts.length
     const totalTimeMin = attempts.reduce((s, a) => s + a.timeSpentMin, 0)
     const todoCount = attempts.filter((a) => a.status !== 'AC').length
@@ -166,7 +205,7 @@ function Dashboard() {
     <div className="space-y-8">
       <h1 className="text-2xl font-semibold tracking-tight">首页</h1>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={BookOpen} label="题目数" value={stats.totalProblems} />
         <StatCard icon={CheckCircle} label="总记录" value={stats.totalAttempts} />
         <StatCard icon={Clock} label="总耗时" value={`${stats.totalTimeMin} min`} />
@@ -181,6 +220,9 @@ function Dashboard() {
           <CardContent>
             {(() => {
               const diffData = stats.byDifficulty.filter((d) => d.value > 0)
+              if (diffData.length === 0) {
+                return <ChartEmpty>暂无通过记录</ChartEmpty>
+              }
               return (
                 <ResponsiveContainer width="100%" height={240}>
                   <PieChart>
@@ -193,12 +235,13 @@ function Dashboard() {
                       paddingAngle={2}
                       dataKey="value"
                       nameKey="name"
+                      stroke="none"
                     >
                       {diffData.map((entry) => (
                         <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip content={ChartTooltip} />
                   </PieChart>
                 </ResponsiveContainer>
               )
@@ -216,13 +259,20 @@ function Dashboard() {
                 <CartesianGrid {...CHART_CONFIG.grid} />
                 <XAxis dataKey="date" {...CHART_CONFIG.axis} />
                 <YAxis allowDecimals={false} {...CHART_CONFIG.axis} />
-                <Tooltip />
+                <Tooltip content={ChartTooltip} cursor={{ stroke: 'hsl(var(--border))' }} />
                 <Line
                   type="monotone"
                   dataKey="做题数"
-                  stroke="hsl(var(--foreground))"
+                  name="做题数"
+                  stroke="hsl(var(--chart-1))"
                   strokeWidth={2}
-                  dot={{ r: 4, fill: 'hsl(var(--foreground))' }}
+                  dot={{
+                    r: 4,
+                    fill: 'hsl(var(--chart-1))',
+                    stroke: 'hsl(var(--card))',
+                    strokeWidth: 2,
+                  }}
+                  activeDot={{ r: 5, stroke: 'hsl(var(--card))', strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -246,8 +296,16 @@ function Dashboard() {
                   tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                   width={60}
                 />
-                <Tooltip />
-                <Bar dataKey="count" fill="hsl(var(--foreground))" radius={[0, 4, 4, 0]} />
+                <Tooltip
+                  content={ChartTooltip}
+                  cursor={{ fill: 'hsl(var(--muted))', opacity: 0.6 }}
+                />
+                <Bar
+                  dataKey="count"
+                  name="通过题数"
+                  fill="hsl(var(--chart-2))"
+                  radius={[0, 4, 4, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -262,8 +320,8 @@ function Dashboard() {
           {stats.recent.map((item) => (
             <Link
               key={item.id}
-              to={`/problems/${item.problem?.id}`}
-              className="flex items-center gap-3 rounded-md p-2 text-sm transition-colors hover:bg-muted"
+              to={item.problem ? `/problems/${item.problem.id}` : '/records'}
+              className="flex flex-wrap items-center gap-2 rounded-md p-2 text-sm transition-colors hover:bg-muted sm:flex-nowrap sm:gap-3"
             >
               <span className="w-20 shrink-0 font-mono text-xs text-muted-foreground">
                 {item.date}
@@ -277,7 +335,7 @@ function Dashboard() {
                 )}
                 {item.problem?.title ?? '(未知)'}
               </span>
-              <div className="flex-1" />
+              <div className="hidden flex-1 sm:block" />
               <StatusBadge status={item.status} size="sm" />
               <span className="text-xs text-muted-foreground">{item.timeSpentMin}min</span>
             </Link>
