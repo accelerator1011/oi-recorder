@@ -15,6 +15,12 @@ class OIDatabase extends Dexie {
       problemTags: '++id, [problemId+tagId]',
       attempts: '++id, problemId, date, status',
     })
+    this.version(2).stores({
+      problems: '++id, luoguId, difficulty',
+      tags: '++id, &name',
+      problemTags: '++id, [problemId+tagId], problemId, tagId',
+      attempts: '++id, problemId, date, status',
+    })
   }
 }
 
