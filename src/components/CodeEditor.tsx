@@ -3,6 +3,7 @@ import CodeMirror from '@uiw/react-codemirror'
 import { cpp } from '@codemirror/lang-cpp'
 import { python } from '@codemirror/lang-python'
 import type { Extension } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
 import { useStore } from '@/store/useStore'
 import type { Language } from '@/lib/types'
 
@@ -10,6 +11,7 @@ interface Props {
   value: string
   onChange: (value: string) => void
   language?: Language
+  readOnly?: boolean
 }
 
 const LANG_EXTENSIONS: Partial<Record<Language, () => Extension>> = {
@@ -18,15 +20,27 @@ const LANG_EXTENSIONS: Partial<Record<Language, () => Extension>> = {
   Python: () => python(),
 }
 
-function CodeEditor({ value, onChange, language }: Props) {
+const CODE_FONT_FAMILY =
+  "'JetBrains Mono', 'JBMono', 'Fira Code', 'Cascadia Code', Consolas, monospace"
+
+function CodeEditor({ value, onChange, language, readOnly = false }: Props) {
   const darkMode = useStore((s) => s.darkMode)
   const fontSize = useStore((s) => s.codeFontSize)
 
   const extensions: Extension[] = useMemo(
     () =>
-      language
-        ? [LANG_EXTENSIONS[language]?.()].filter((ext): ext is Extension => ext !== undefined)
-        : [],
+      [
+        EditorView.theme({
+          '.cm-scroller, .cm-content, .cm-line, .cm-gutters': {
+            fontFamily: CODE_FONT_FAMILY,
+          },
+        }),
+        ...(language
+          ? [LANG_EXTENSIONS[language]?.()].filter(
+              (ext): ext is Extension => ext !== undefined
+            )
+          : []),
+      ],
     [language]
   )
 
@@ -36,6 +50,8 @@ function CodeEditor({ value, onChange, language }: Props) {
     <CodeMirror
       value={value}
       onChange={onChange}
+      editable={!readOnly}
+      readOnly={readOnly}
       theme={darkMode ? 'dark' : 'light'}
       basicSetup={{
         lineNumbers: true,

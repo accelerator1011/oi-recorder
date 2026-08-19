@@ -9,6 +9,7 @@ import rehypeKatex from 'rehype-katex'
 import { getProblem, getAttemptsByProblemId, getTagsForProblem } from '@/lib/db'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
+import CodeEditor from '@/components/CodeEditor'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -179,9 +180,14 @@ function ProblemDetail() {
                           <Code2 className="h-3 w-3" />
                           代码
                         </div>
-                        <pre className="overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm">
-                          {a.code}
-                        </pre>
+                        <div className="overflow-x-auto p-4 [&_.cm-content]:p-0 [&_.cm-editor]:bg-transparent [&_.cm-editor]:outline-none [&_.cm-gutters]:border-0 [&_.cm-gutters]:bg-transparent [&_.cm-scroller]:font-mono [&_.cm-scroller]:text-sm">
+                          <CodeEditor
+                            value={a.code}
+                            onChange={() => undefined}
+                            language={a.language}
+                            readOnly
+                          />
+                        </div>
                       </div>
                     )}
                     {a.notes && (
