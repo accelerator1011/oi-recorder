@@ -23,6 +23,10 @@
   },
   "homepage": "https://github.com/your-username/oi-recorder#readme",
   "license": "GPL-3.0",
+  "engines": {
+    "node": ">=20.19",
+    "pnpm": ">=8"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

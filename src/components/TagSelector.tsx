@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { X, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { createTag, getAllTags as getAllTagsOrdered } from '@/lib/db'
+import { createTag, getAllTags } from '@/lib/db'
 import type { Tag } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -13,7 +13,7 @@ interface Props {
 }
 
 function TagSelector({ selectedIds, onChange }: Props) {
-  const allTagsRaw = useLiveQuery(() => getAllTagsOrdered(), [])
+  const allTagsRaw = useLiveQuery(() => getAllTags(), [])
   const allTags = useMemo(() => allTagsRaw ?? [], [allTagsRaw])
   const [input, setInput] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)

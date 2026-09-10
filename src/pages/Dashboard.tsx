@@ -17,14 +17,10 @@ import {
   LineChart,
   Line,
 } from 'recharts'
-import {
-  getAllAttempts,
-  getAllProblems,
-  getAllTags as getAllTagsOrdered,
-  getAllProblemTags,
-} from '@/lib/db'
+import { getAllAttempts, getAllProblems, getAllTags, getAllProblemTags } from '@/lib/db'
 import { DIFFICULTY_MAP, DIFFICULTIES } from '@/lib/constants'
-import type { Attempt, ProblemTag, Tag } from '@/lib/types'
+import { buildProblemIndex } from '@/lib/selectors'
+import type { Attempt } from '@/lib/types'
 import { toLocalDateString } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
@@ -81,14 +77,17 @@ function ChartEmpty({ children }: { children: ReactNode }) {
 function Dashboard() {
   const attempts = useLiveQuery(() => getAllAttempts(), [])
   const problems = useLiveQuery(() => getAllProblems(), [])
-  const allTags = useLiveQuery(() => getAllTagsOrdered(), [])
+  const allTags = useLiveQuery(() => getAllTags(), [])
   const allProblemTags = useLiveQuery(() => getAllProblemTags(), [])
 
   const stats = useMemo(() => {
     if (!attempts || !problems || !allTags || !allProblemTags) return null
 
-    const problemMap = new Map(problems.map((p) => [p.id!, p]))
-    const tagMap = new Map(allTags.map((t) => [t.id!, t]))
+    const { problemMap, tagMap, problemTagRows, tagsByProblemId } = buildProblemIndex(
+      problems,
+      allTags,
+      allProblemTags
+    )
 
     const totalProblems = new Set(attempts.map((attempt) => attempt.problemId)).size
     const totalAttempts = attempts.length
@@ -111,16 +110,6 @@ function Dashboard() {
     const tagCounts: Record<string, number> = {}
     const dateCounts: Record<string, number> = {}
 
-    const ptByProblemId = new Map<number, ProblemTag[]>()
-    for (const pt of allProblemTags) {
-      const arr = ptByProblemId.get(pt.problemId)
-      if (arr) {
-        arr.push(pt)
-      } else {
-        ptByProblemId.set(pt.problemId, [pt])
-      }
-    }
-
     for (const a of firstAcByProblem.values()) {
       const p = problemMap.get(a.problemId)
       if (p) {
@@ -128,7 +117,7 @@ function Dashboard() {
       }
       dateCounts[a.date] = (dateCounts[a.date] ?? 0) + 1
 
-      for (const pt of ptByProblemId.get(a.problemId) ?? []) {
+      for (const pt of problemTagRows.get(a.problemId) ?? []) {
         const tag = tagMap.get(pt.tagId)
         if (tag) {
           tagCounts[tag.name] = (tagCounts[tag.name] ?? 0) + 1
@@ -163,9 +152,7 @@ function Dashboard() {
       .map((a) => ({
         ...a,
         problem: problemMap.get(a.problemId),
-        tags: (ptByProblemId.get(a.problemId) ?? [])
-          .map((pt) => tagMap.get(pt.tagId))
-          .filter(Boolean) as Tag[],
+        tags: tagsByProblemId.get(a.problemId) ?? [],
       }))
 
     return {
