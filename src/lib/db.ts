@@ -1,5 +1,14 @@
 import Dexie, { type Table } from 'dexie'
-import type { Attempt, Difficulty, Language, Problem, ProblemTag, Status, Tag } from './types'
+import type {
+  Attempt,
+  AttemptContent,
+  Difficulty,
+  Language,
+  Problem,
+  ProblemTag,
+  Status,
+  Tag,
+} from './types'
 import { DIFFICULTIES, LANGUAGE_OPTIONS, STATUS_COLORS } from './constants'
 
 class OIDatabase extends Dexie {
@@ -7,6 +16,7 @@ class OIDatabase extends Dexie {
   tags!: Table<Tag>
   problemTags!: Table<ProblemTag>
   attempts!: Table<Attempt>
+  attemptContents!: Table<AttemptContent, number>
 
   constructor() {
     super('OiRecorderDB')
@@ -25,6 +35,34 @@ class OIDatabase extends Dexie {
       problemTags: '++id, [problemId+tagId], problemId, tagId',
       attempts: '++id, problemId, date, status',
     })
+    // v3 把 code / notes 从 attempts 行里拆到独立的 attemptContents 表。
+    // 列表页与首页只查 attempts，不再把每一条记录的代码读进内存。
+    this.version(3)
+      .stores({
+        problems: '++id, luoguId, difficulty',
+        tags: '++id, &name',
+        problemTags: '++id, [problemId+tagId], problemId, tagId',
+        attempts: '++id, problemId, date, status',
+        attemptContents: 'id',
+      })
+      .upgrade(async (tx) => {
+        const attempts = tx.table('attempts')
+        const rows = (await attempts.toArray()) as Array<Record<string, unknown>>
+        const contents = rows
+          .filter((row) => typeof row.id === 'number')
+          .map((row) => ({
+            id: row.id as number,
+            code: typeof row.code === 'string' ? row.code : '',
+            notes: typeof row.notes === 'string' ? row.notes : '',
+          }))
+        if (contents.length) await tx.table('attemptContents').bulkPut(contents)
+        // 迁移后必须把原行里的 code/notes 删掉，否则旧数据仍会占着空间
+        await attempts.toCollection().modify((row) => {
+          const record = row as Record<string, unknown>
+          delete record.code
+          delete record.notes
+        })
+      })
   }
 }
 
@@ -162,43 +200,98 @@ export async function setProblemTags(problemId: number, tagIds: number[]): Promi
 
 /* ── Attempt CRUD ─────────────────────────────────────── */
 
+/** 新建/更新一条记录时的入参：元数据 + 代码 + 笔记 */
+export type AttemptDraft = Omit<Attempt, 'id' | 'createdAt'> &
+  Pick<AttemptContent, 'code' | 'notes'>
+
 export async function getAttemptsByProblemId(problemId: number): Promise<Attempt[]> {
   const arr = await db.attempts.where('problemId').equals(problemId).sortBy('date')
   arr.reverse()
   return arr
 }
 
-export async function createAttempt(data: Omit<Attempt, 'id' | 'createdAt'>): Promise<number> {
-  return db.attempts.put({
-    ...data,
-    createdAt: new Date(),
-  } as Attempt)
+/** 取某个题目下所有记录的代码/笔记，键为 attempt id */
+export async function getAttemptContentsByProblemId(
+  problemId: number
+): Promise<Map<number, AttemptContent>> {
+  const attemptIds = await db.attempts.where('problemId').equals(problemId).primaryKeys()
+  if (attemptIds.length === 0) return new Map()
+  const rows = await db.attemptContents.where('id').anyOf(attemptIds).toArray()
+  return new Map(rows.map((row) => [row.id, row]))
 }
 
-export async function updateAttempt(
-  id: number,
-  data: Partial<Omit<Attempt, 'id' | 'createdAt'>>
-): Promise<void> {
-  await db.attempts.update(id, data)
+export async function createAttempt(data: AttemptDraft): Promise<number> {
+  return db.transaction('rw', db.attempts, db.attemptContents, async () => {
+    const { code, notes, ...meta } = data
+    const id = await db.attempts.add({ ...meta, createdAt: new Date() })
+    await db.attemptContents.add({ id, code, notes })
+    return id
+  })
 }
 
-export async function deleteAttempt(id: number): Promise<void> {
-  await db.transaction('rw', db.attempts, db.problems, db.problemTags, async () => {
-    const attempt = await db.attempts.get(id)
-    if (!attempt) return
-
-    await db.attempts.delete(id)
-    const remainingAttempts = await db.attempts.where('problemId').equals(attempt.problemId).count()
-
-    if (remainingAttempts === 0) {
-      await db.problemTags.where('problemId').equals(attempt.problemId).delete()
-      await db.problems.delete(attempt.problemId)
+export async function updateAttempt(id: number, data: Partial<AttemptDraft>): Promise<void> {
+  await db.transaction('rw', db.attempts, db.attemptContents, async () => {
+    const { code, notes, ...meta } = data
+    if (Object.keys(meta).length > 0) await db.attempts.update(id, meta)
+    if (code !== undefined || notes !== undefined) {
+      const existing = await db.attemptContents.get(id)
+      await db.attemptContents.put({
+        id,
+        code: code ?? existing?.code ?? '',
+        notes: notes ?? existing?.notes ?? '',
+      })
     }
   })
 }
 
+export async function deleteAttempt(id: number): Promise<void> {
+  await db.transaction(
+    'rw',
+    db.attempts,
+    db.attemptContents,
+    db.problems,
+    db.problemTags,
+    async () => {
+      const attempt = await db.attempts.get(id)
+      if (!attempt) return
+
+      await db.attemptContents.delete(id)
+      await db.attempts.delete(id)
+      const remainingAttempts = await db.attempts
+        .where('problemId')
+        .equals(attempt.problemId)
+        .count()
+
+      // 最后一条记录被删除后，题目本身失去意义，连同标签关联一起清理
+      if (remainingAttempts === 0) {
+        await db.problemTags.where('problemId').equals(attempt.problemId).delete()
+        await db.problems.delete(attempt.problemId)
+      }
+    }
+  )
+}
+
 export async function getAttempt(id: number): Promise<Attempt | undefined> {
   return db.attempts.get(id)
+}
+
+export async function getAttemptContent(id: number): Promise<AttemptContent | undefined> {
+  return db.attemptContents.get(id)
+}
+
+/** 编辑表单用：把元数据与代码/笔记拼回一个对象 */
+export async function getAttemptDraft(id: number): Promise<AttemptDraft | undefined> {
+  const [attempt, content] = await Promise.all([db.attempts.get(id), db.attemptContents.get(id)])
+  if (!attempt) return undefined
+  return {
+    problemId: attempt.problemId,
+    date: attempt.date,
+    status: attempt.status,
+    language: attempt.language,
+    timeSpentMin: attempt.timeSpentMin,
+    code: content?.code ?? '',
+    notes: content?.notes ?? '',
+  }
 }
 
 export async function getAllAttempts(): Promise<Attempt[]> {
@@ -224,56 +317,83 @@ export async function getDataCounts(): Promise<DataCounts> {
 
 /* ── Backup ───────────────────────────────────────────── */
 
+/**
+ * 备份文件里的记录是「代码/笔记内联」的扁平格式，与内部存储（拆表）不同。
+ * 保持这个格式是为了向后兼容：旧版本导出的备份能直接导入，
+ * 新版本导出的备份也能被旧版本读回。
+ */
+export type BackupAttempt = Attempt & Pick<AttemptContent, 'code' | 'notes'>
+
 export interface BackupData {
   version: number
   exportedAt: string
   problems: Problem[]
   tags: Tag[]
   problemTags: ProblemTag[]
-  attempts: Attempt[]
+  attempts: BackupAttempt[]
 }
 
 export async function exportAll(): Promise<BackupData> {
-  const [problems, tags, problemTags, attempts] = await Promise.all([
+  const [problems, tags, problemTags, attempts, contents] = await Promise.all([
     db.problems.toArray(),
     db.tags.toArray(),
     db.problemTags.toArray(),
     db.attempts.toArray(),
+    db.attemptContents.toArray(),
   ])
+  const contentMap = new Map(contents.map((row) => [row.id, row]))
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
     problems,
     tags,
     problemTags,
-    attempts,
+    attempts: attempts.map((a) => ({
+      ...a,
+      code: (a.id === undefined ? undefined : contentMap.get(a.id)?.code) ?? '',
+      notes: (a.id === undefined ? undefined : contentMap.get(a.id)?.notes) ?? '',
+    })),
   }
 }
 
 export async function importAll(data: BackupData): Promise<void> {
-  await db.transaction('rw', db.problems, db.tags, db.problemTags, db.attempts, async () => {
-    await db.problems.clear()
-    await db.tags.clear()
-    await db.problemTags.clear()
-    await db.attempts.clear()
+  await db.transaction(
+    'rw',
+    db.problems,
+    db.tags,
+    db.problemTags,
+    db.attempts,
+    db.attemptContents,
+    async () => {
+      await db.problems.clear()
+      await db.tags.clear()
+      await db.problemTags.clear()
+      await db.attempts.clear()
+      await db.attemptContents.clear()
 
-    if (data.problems.length)
-      await db.problems.bulkPut(
-        data.problems.map((p) => ({
-          ...p,
-          createdAt: new Date(p.createdAt),
-        }))
-      )
-    if (data.tags.length) await db.tags.bulkPut(data.tags)
-    if (data.problemTags.length) await db.problemTags.bulkPut(data.problemTags)
-    if (data.attempts.length)
-      await db.attempts.bulkPut(
-        data.attempts.map((a) => ({
-          ...a,
-          createdAt: new Date(a.createdAt),
-        }))
-      )
-  })
+      if (data.problems.length)
+        await db.problems.bulkPut(
+          data.problems.map((p) => ({
+            ...p,
+            createdAt: new Date(p.createdAt),
+          }))
+        )
+      if (data.tags.length) await db.tags.bulkPut(data.tags)
+      if (data.problemTags.length) await db.problemTags.bulkPut(data.problemTags)
+
+      if (data.attempts.length) {
+        const attempts: Attempt[] = []
+        const contents: AttemptContent[] = []
+        for (const item of data.attempts) {
+          const { code, notes, ...meta } = item
+          attempts.push({ ...meta, createdAt: new Date(meta.createdAt) })
+          if (meta.id !== undefined) contents.push({ id: meta.id, code, notes })
+        }
+        await db.attempts.bulkPut(attempts)
+        if (contents.length) await db.attemptContents.bulkPut(contents)
+      }
+    }
+  )
 }
 
 /* ── 备份文件解析与校验 ───────────────────────────────── */
@@ -414,7 +534,7 @@ export function parseBackupFile(text: string): BackupData {
     problemTags.push({ id, problemId: problemId as number, tagId: tagId as number })
   })
 
-  const attempts: Attempt[] = []
+  const attempts: BackupAttempt[] = []
   const attemptIds = new Set<number>()
   attemptRows.forEach((item, index) => {
     const path = `attempts[${index}]`

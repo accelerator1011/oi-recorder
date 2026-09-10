@@ -1,6 +1,13 @@
 export type Difficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
-export type Status = 'AC' | '部分分' | 'WA' | 'TLE' | 'MLE' | 'RE' | 'CE' | '进行中'
+/** 表单里可以选择的提交状态 */
+export type SelectableStatus = 'AC' | '部分分' | 'WA' | 'TLE' | 'MLE' | 'RE' | 'CE'
+
+/**
+ * 数据中可能出现的全部状态。除表单可选值外，还包含历史遗留的「进行中」：
+ * 该值已从新建选项里移除，但老记录仍可能存有，读取与导入时必须兼容。
+ */
+export type Status = SelectableStatus | '进行中'
 
 export type Language = 'C++' | 'C' | 'Python' | 'Java' | 'Pascal'
 
@@ -23,6 +30,7 @@ export interface ProblemTag {
   tagId: number
 }
 
+/** 做题记录的元数据，不含代码与笔记 */
 export interface Attempt {
   id?: number
   problemId: number
@@ -30,7 +38,15 @@ export interface Attempt {
   status: Status
   language: Language
   timeSpentMin: number
+  createdAt: Date
+}
+
+/**
+ * 代码与笔记单独建表存放，主键即对应 attempt 的 id（一对一）。
+ * 拆表的唯一目的是让列表页/首页查询不必把每一条记录的代码都读进内存。
+ */
+export interface AttemptContent {
+  id: number
   code: string
   notes: string
-  createdAt: Date
 }

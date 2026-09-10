@@ -22,7 +22,7 @@
 ### 核心功能
 
 - **做题记录管理** - 记录每道题的解题过程，包括代码、思路、耗时等
-- **多状态支持** - 支持 AC、部分分、WA、TLE、MLE、RE、CE、进行中等状态
+- **多状态支持** - 支持 AC、部分分、WA、TLE、MLE、RE、CE 等状态；非 AC 的记录在统计中视为「进行中」
 - **多语言支持** - 支持 C++、C、Python、Java、Pascal 等编程语言
 - **难度分级** - 8 级难度体系，从入门到 NOI/CTS
 - **标签系统** - 自定义算法标签，灵活分类题目
@@ -53,7 +53,7 @@
 
 ### 环境要求
 
-- [Node.js](https://nodejs.org/) >= 18
+- [Node.js](https://nodejs.org/) >= 20.19（推荐 22 LTS）
 - [pnpm](https://pnpm.io/) >= 8 (推荐)
 
 ### 安装
@@ -170,6 +170,7 @@ oi-recorder/
 │   │   ├── db.ts            # 数据库操作
 │   │   ├── types.ts         # TypeScript 类型
 │   │   ├── constants.ts     # 常量定义
+│   │   ├── selectors.ts     # 跨表 join 与派生数据
 │   │   └── utils.ts         # 工具函数
 │   ├── store/                # 状态管理
 │   │   └── useStore.ts      # Zustand store

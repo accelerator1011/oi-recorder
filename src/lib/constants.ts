@@ -1,4 +1,4 @@
-import type { Difficulty, Language, Status } from './types'
+import type { Difficulty, Language, SelectableStatus, Status } from './types'
 
 export const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5, 6, 7, 8]
 
@@ -13,7 +13,8 @@ export const DIFFICULTY_MAP: Record<Difficulty, { label: string; color: string }
   8: { label: 'NOI/NOI+/CTS', color: '#1e3a8a' },
 }
 
-export const STATUS_OPTIONS: Status[] = ['AC', '部分分', 'WA', 'TLE', 'MLE', 'RE', 'CE']
+/** 表单可选项。历史遗留的「进行中」不再提供，非 AC 一律视为进行中 */
+export const STATUS_OPTIONS: SelectableStatus[] = ['AC', '部分分', 'WA', 'TLE', 'MLE', 'RE', 'CE']
 
 export const STATUS_COLORS: Record<Status, string> = {
   AC: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',

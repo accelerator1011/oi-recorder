@@ -4,13 +4,10 @@ import { AlertTriangle, Download, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportAll, getDataCounts, importAll, parseBackupFile } from '@/lib/db'
 import type { BackupData } from '@/lib/db'
+import { getErrorMessage } from '@/lib/utils'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : '未知错误'
-}
 
 function Backup() {
   const [pending, setPending] = useState<BackupData | null>(null)
@@ -31,7 +28,7 @@ function Backup() {
       URL.revokeObjectURL(url)
       toast.success('备份导出成功')
     } catch (err) {
-      toast.error(`导出失败：${errorMessage(err)}`)
+      toast.error(`导出失败：${getErrorMessage(err)}`)
     }
   }
 
@@ -45,7 +42,7 @@ function Backup() {
     try {
       setPending(parseBackupFile(await file.text()))
     } catch (err) {
-      toast.error(`导入失败：${errorMessage(err)}`)
+      toast.error(`导入失败：${getErrorMessage(err)}`)
     }
   }
 
@@ -58,7 +55,7 @@ function Backup() {
       )
       setPending(null)
     } catch (err) {
-      toast.error(`导入失败：${errorMessage(err)}`)
+      toast.error(`导入失败：${getErrorMessage(err)}`)
     }
   }
 

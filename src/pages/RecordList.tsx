@@ -7,11 +7,12 @@ import {
   deleteAttempt,
   getAllAttempts,
   getAllProblems,
-  getAllTags as getAllTagsOrdered,
+  getAllTags,
   getAllProblemTags,
 } from '@/lib/db'
 import { DIFFICULTY_MAP, DIFFICULTIES, STATUS_OPTIONS } from '@/lib/constants'
-import type { Attempt, Problem, Tag, Status } from '@/lib/types'
+import { buildProblemIndex, joinAttempts } from '@/lib/selectors'
+import type { Status } from '@/lib/types'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
 import { Input } from '@/components/ui/input'
@@ -34,17 +35,11 @@ import {
 import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
 
-interface AttemptView {
-  attempt: Attempt
-  problem: Problem
-  tags: Tag[]
-}
-
 function RecordList() {
   const navigate = useNavigate()
   const allAttempts = useLiveQuery(() => getAllAttempts(), [])
   const allProblems = useLiveQuery(() => getAllProblems(), [])
-  const allTags = useLiveQuery(() => getAllTagsOrdered(), [])
+  const allTags = useLiveQuery(() => getAllTags(), [])
   const allProblemTags = useLiveQuery(() => getAllProblemTags(), [])
 
   const [search, setSearch] = useState('')
@@ -52,35 +47,13 @@ function RecordList() {
   const [filterStatus, setFilterStatus] = useState<Status | 'all'>('all')
   const [deleteId, setDeleteId] = useState<number | null>(null)
 
-  const joined = useMemo<AttemptView[]>(() => {
-    if (!allAttempts || !allProblems || !allTags || !allProblemTags) return []
-
-    const problemMap = new Map(allProblems.map((p) => [p.id!, p]))
-    const tagMap = new Map(allTags.map((t) => [t.id!, t]))
-
-    const ptByProblemId = new Map<number, typeof allProblemTags>()
-    for (const pt of allProblemTags) {
-      let arr = ptByProblemId.get(pt.problemId)
-      if (!arr) {
-        arr = []
-        ptByProblemId.set(pt.problemId, arr)
-      }
-      arr.push(pt)
-    }
-
-    return allAttempts
-      .map((a) => {
-        const problem = problemMap.get(a.problemId)
-        if (!problem) return null
-        const tags = (ptByProblemId.get(problem.id!) ?? [])
-          .map((pt) => tagMap.get(pt.tagId))
-          .filter(Boolean) as Tag[]
-        return { attempt: a, problem, tags }
-      })
-      .filter(Boolean) as AttemptView[]
+  const joined = useMemo(() => {
+    if (!allAttempts || !allProblems || !allTags || !allProblemTags) return null
+    return joinAttempts(allAttempts, buildProblemIndex(allProblems, allTags, allProblemTags))
   }, [allAttempts, allProblems, allTags, allProblemTags])
 
   const filtered = useMemo(() => {
+    if (!joined) return []
     return joined.filter((item) => {
       if (filterDifficulty && item.problem.difficulty !== filterDifficulty) return false
       if (filterStatus !== 'all' && item.attempt.status !== filterStatus) return false
@@ -97,6 +70,15 @@ function RecordList() {
     })
   }, [joined, filterDifficulty, filterStatus, search])
 
+  // 删除最后一条记录会连带删掉题目和它的标签关联，确认框必须把这点说清楚
+  const deleteTarget = useMemo(() => {
+    if (deleteId === null || !joined || !allAttempts) return null
+    const item = joined.find((view) => view.attempt.id === deleteId)
+    if (!item) return null
+    const siblingCount = allAttempts.filter((a) => a.problemId === item.problem.id).length
+    return { title: item.problem.title, isLastOfProblem: siblingCount <= 1 }
+  }, [deleteId, joined, allAttempts])
+
   const handleDelete = async (attemptId: number) => {
     try {
       await deleteAttempt(attemptId)
@@ -105,7 +87,7 @@ function RecordList() {
     }
   }
 
-  if (!allAttempts || !allProblems || !allTags || !allProblemTags) {
+  if (!joined) {
     return (
       <div className="flex items-center justify-center py-24">
         <p className="text-sm text-muted-foreground">加载中...</p>
@@ -132,6 +114,7 @@ function RecordList() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索题号、题名、标签..."
+            aria-label="搜索记录"
             className="pl-9"
           />
         </div>
@@ -140,7 +123,7 @@ function RecordList() {
           value={filterDifficulty !== null ? String(filterDifficulty) : 'all'}
           onValueChange={(v) => setFilterDifficulty(v === 'all' ? null : Number(v))}
         >
-          <SelectTrigger className="w-[130px]">
+          <SelectTrigger className="w-[130px]" aria-label="按难度筛选">
             <SelectValue placeholder="全部难度" />
           </SelectTrigger>
           <SelectContent>
@@ -156,7 +139,7 @@ function RecordList() {
         </Select>
 
         <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as Status | 'all')}>
-          <SelectTrigger className="w-[130px]">
+          <SelectTrigger className="w-[130px]" aria-label="按状态筛选">
             <SelectValue placeholder="全部状态" />
           </SelectTrigger>
           <SelectContent>
@@ -252,7 +235,9 @@ function RecordList() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => setDeleteId(attempt.id!)}
+                          onClick={() => {
+                            if (attempt.id !== undefined) setDeleteId(attempt.id)
+                          }}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           删除
@@ -271,7 +256,11 @@ function RecordList() {
         open={deleteId !== null}
         onOpenChange={(v) => !v && setDeleteId(null)}
         title="删除记录"
-        description="确定删除这条记录吗？此操作不可撤销。"
+        description={
+          deleteTarget?.isLastOfProblem
+            ? `「${deleteTarget.title}」只剩这一条记录，删除后该题目及其标签关联也会一并删除，且不可撤销。`
+            : '确定删除这条记录吗？此操作不可撤销。'
+        }
         confirmText="删除"
         destructive
         onConfirm={async () => {
