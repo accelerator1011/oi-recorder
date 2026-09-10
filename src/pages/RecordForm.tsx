@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useBlocker, useBeforeUnload } from 'react-router-dom'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -20,6 +20,7 @@ import CodeEditor from '@/components/CodeEditor'
 import MarkdownEditor from '@/components/MarkdownEditor'
 import TagSelector from '@/components/TagSelector'
 import PageHeader from '@/components/PageHeader'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -55,8 +56,16 @@ function RecordForm() {
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
+  // blocker 的判定与 beforeunload 都要读「当下」的脏标记，不能用 state：
+  // 保存成功后紧接着 navigate('/records')，那一刻 React 还没重渲染，
+  // 若判定函数依赖 state.dirty，会把我们自己的跳转也拦下来。
+  const dirtyRef = useRef(false)
+  const setDirtyFlag = useCallback((value: boolean) => {
+    dirtyRef.current = value
+    setDirty(value)
+  }, [])
 
-  const touch = useCallback(() => setDirty(true), [])
+  const touch = useCallback(() => setDirtyFlag(true), [setDirtyFlag])
 
   const timeSpentMin = timeSpent.trim() === '' ? 0 : Number(timeSpent)
   const timeSpentValid = Number.isInteger(timeSpentMin) && timeSpentMin >= 0
@@ -108,7 +117,7 @@ function RecordForm() {
         setLanguage(attempt.language)
         setCode(draft?.code ?? '')
         setNotes(draft?.notes ?? '')
-        setDirty(false)
+        setDirtyFlag(false)
       } catch (err) {
         if (!cancelled) toast.error(`加载记录失败：${getErrorMessage(err)}`)
       } finally {
@@ -119,19 +128,25 @@ function RecordForm() {
     return () => {
       cancelled = true
     }
-  }, [id, isEditing, navigate, numericId])
+  }, [id, isEditing, navigate, numericId, setDirtyFlag])
 
-  // 刷新或关闭标签页前的兜底提醒。注意：SPA 内部跳转（侧边栏、浏览器后退）
-  // 不会触发 beforeunload，要拦住它们需要把路由换成 data router 后用 useBlocker。
-  useEffect(() => {
-    if (!dirty) return
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  // 拦截 SPA 内部跳转：侧边栏链接、卡片链接、浏览器前进/后退
+  const blocker = useBlocker(
+    useCallback(
+      ({ currentLocation, nextLocation }) =>
+        dirtyRef.current && currentLocation.pathname !== nextLocation.pathname,
+      []
+    )
+  )
+
+  // 拦截刷新 / 关闭标签页
+  useBeforeUnload(
+    useCallback((event: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return
       event.preventDefault()
       event.returnValue = ''
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [dirty])
+    }, [])
+  )
 
   const blurSeqRef = useRef(0)
 
@@ -194,7 +209,7 @@ function RecordForm() {
       } else {
         await createAttempt(payload)
       }
-      setDirty(false)
+      setDirtyFlag(false)
       toast.success(isEditing ? '记录已更新' : '记录已创建')
       navigate('/records')
     } catch (err) {
@@ -213,195 +228,221 @@ function RecordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      <PageHeader
-        title={isEditing ? '编辑记录' : '新建记录'}
-        description={dirty ? '有未保存的修改' : undefined}
-        actions={
-          <Button type="submit" disabled={saving || !title.trim() || !timeSpentValid} size="sm">
-            <Save className="mr-1.5 h-4 w-4" />
-            {saving ? '保存中...' : '保存'}
-          </Button>
-        }
-      />
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="luoguId">洛谷题号</Label>
-          <Input
-            id="luoguId"
-            value={luoguId}
-            onChange={(e) => {
-              touch()
-              setLuoguId(e.target.value)
-            }}
-            onBlur={handleLuoguIdBlur}
-            placeholder="可选，如 P1001"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="title">
-            题名 <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="title"
-            value={title}
-            onChange={(e) => {
-              touch()
-              setTitle(e.target.value)
-            }}
-            placeholder="题目名称"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label id="difficulty-label">难度</Label>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="difficulty-label">
-          {DIFFICULTIES.map((d) => {
-            const info = DIFFICULTY_MAP[d]
-            const active = difficulty === d
-            return (
-              <button
-                key={d}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => {
-                  touch()
-                  setDifficulty(d)
-                }}
-                className={cn(
-                  'flex min-w-[56px] flex-col items-center rounded-lg border-2 px-3 py-2 text-xs font-medium transition-all',
-                  active ? 'scale-105 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'
-                )}
-                style={{
-                  backgroundColor: active ? info.color + '20' : 'transparent',
-                  color: info.color,
-                  borderColor: active ? info.color : 'transparent',
-                }}
-              >
-                <span className="text-lg font-bold">{d}</span>
-                <span className="whitespace-nowrap">{info.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>算法标签</Label>
-        <TagSelector
-          selectedIds={selectedTagIds}
-          onChange={(ids) => {
-            touch()
-            setSelectedTagIds(ids)
-          }}
+    <>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <PageHeader
+          title={isEditing ? '编辑记录' : '新建记录'}
+          description={dirty ? '有未保存的修改' : undefined}
+          actions={
+            <Button type="submit" disabled={saving || !title.trim() || !timeSpentValid} size="sm">
+              <Save className="mr-1.5 h-4 w-4" />
+              {saving ? '保存中...' : '保存'}
+            </Button>
+          }
         />
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="luoguId">洛谷题号</Label>
+            <Input
+              id="luoguId"
+              value={luoguId}
+              onChange={(e) => {
+                touch()
+                setLuoguId(e.target.value)
+              }}
+              onBlur={handleLuoguIdBlur}
+              placeholder="可选，如 P1001"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="title">
+              题名 <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => {
+                touch()
+                setTitle(e.target.value)
+              }}
+              placeholder="题目名称"
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
-          <Label htmlFor="date">完成日期</Label>
-          <Input
-            id="date"
-            type="date"
-            value={date}
-            onChange={(e) => {
+          <Label id="difficulty-label">难度</Label>
+          <div
+            className="flex flex-wrap gap-2"
+            role="radiogroup"
+            aria-labelledby="difficulty-label"
+          >
+            {DIFFICULTIES.map((d) => {
+              const info = DIFFICULTY_MAP[d]
+              const active = difficulty === d
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => {
+                    touch()
+                    setDifficulty(d)
+                  }}
+                  className={cn(
+                    'flex min-w-[56px] flex-col items-center rounded-lg border-2 px-3 py-2 text-xs font-medium transition-all',
+                    active
+                      ? 'scale-105 shadow-sm'
+                      : 'border-transparent opacity-60 hover:opacity-100'
+                  )}
+                  style={{
+                    backgroundColor: active ? info.color + '20' : 'transparent',
+                    color: info.color,
+                    borderColor: active ? info.color : 'transparent',
+                  }}
+                >
+                  <span className="text-lg font-bold">{d}</span>
+                  <span className="whitespace-nowrap">{info.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>算法标签</Label>
+          <TagSelector
+            selectedIds={selectedTagIds}
+            onChange={(ids) => {
               touch()
-              setDate(e.target.value)
+              setSelectedTagIds(ids)
             }}
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="time">耗时 (分钟)</Label>
-          <Input
-            id="time"
-            type="number"
-            value={timeSpent}
-            onChange={(e) => {
-              touch()
-              setTimeSpent(e.target.value)
-            }}
-            min={0}
-            step={1}
-            aria-invalid={!timeSpentValid}
-          />
-          {!timeSpentValid && <p className="text-xs text-destructive">请填写非负整数分钟数</p>}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-2">
+            <Label htmlFor="date">完成日期</Label>
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => {
+                touch()
+                setDate(e.target.value)
+              }}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="time">耗时 (分钟)</Label>
+            <Input
+              id="time"
+              type="number"
+              value={timeSpent}
+              onChange={(e) => {
+                touch()
+                setTimeSpent(e.target.value)
+              }}
+              min={0}
+              step={1}
+              aria-invalid={!timeSpentValid}
+            />
+            {!timeSpentValid && <p className="text-xs text-destructive">请填写非负整数分钟数</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status">状态</Label>
+            <Select
+              value={status}
+              onValueChange={(v) => {
+                touch()
+                setStatus(v as Status)
+              }}
+            >
+              <SelectTrigger id="status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="language">语言</Label>
+            <Select
+              value={language}
+              onValueChange={(v) => {
+                touch()
+                setLanguage(v as Language)
+              }}
+            >
+              <SelectTrigger id="language">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGE_OPTIONS.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="status">状态</Label>
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              touch()
-              setStatus(v as Status)
-            }}
-          >
-            <SelectTrigger id="status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label>代码</Label>
+          <Card className="overflow-hidden">
+            <CodeEditor
+              value={code}
+              onChange={(value) => {
+                touch()
+                setCode(value)
+              }}
+              language={language}
+            />
+          </Card>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="language">语言</Label>
-          <Select
-            value={language}
-            onValueChange={(v) => {
-              touch()
-              setLanguage(v as Language)
-            }}
-          >
-            <SelectTrigger id="language">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {LANGUAGE_OPTIONS.map((l) => (
-                <SelectItem key={l} value={l}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>代码</Label>
-        <Card className="overflow-hidden">
-          <CodeEditor
-            value={code}
+          <Label>Markdown 笔记</Label>
+          <MarkdownEditor
+            value={notes}
             onChange={(value) => {
               touch()
-              setCode(value)
+              setNotes(value)
             }}
-            language={language}
           />
-        </Card>
-      </div>
+        </div>
+      </form>
 
-      <div className="space-y-2">
-        <Label>Markdown 笔记</Label>
-        <MarkdownEditor
-          value={notes}
-          onChange={(value) => {
-            touch()
-            setNotes(value)
-          }}
-        />
-      </div>
-    </form>
+      {/* 放在 <form> 之外：对话框按钮若在表单内会被当成提交按钮 */}
+      <ConfirmDialog
+        open={blocker.state === 'blocked'}
+        onOpenChange={(open) => {
+          // 只有用户主动取消（「继续编辑」/Esc/点遮罩）才需要撤销这次跳转
+          if (!open && blocker.state === 'blocked') blocker.reset()
+        }}
+        title="放弃未保存的修改？"
+        description="这条记录还有未保存的修改，离开后填写的内容会丢失。"
+        confirmText="放弃并离开"
+        cancelText="继续编辑"
+        destructive
+        closeOnConfirm={false}
+        onConfirm={() => {
+          if (blocker.state === 'blocked') blocker.proceed()
+        }}
+      />
+    </>
   )
 }
 

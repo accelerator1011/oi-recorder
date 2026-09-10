@@ -17,6 +17,12 @@ interface ConfirmDialogProps {
   confirmText?: string
   cancelText?: string
   destructive?: boolean
+  /**
+   * 确认后是否自动关闭。默认 true。
+   * 交给外部状态（例如路由 blocker）控制开合时传 false，避免关闭动作
+   * 反过来触发外部的取消逻辑。
+   */
+  closeOnConfirm?: boolean
   onConfirm: () => void | Promise<void>
 }
 
@@ -28,6 +34,7 @@ function ConfirmDialog({
   confirmText = '确认',
   cancelText = '取消',
   destructive = false,
+  closeOnConfirm = true,
   onConfirm,
 }: ConfirmDialogProps) {
   const [loading, setLoading] = useState(false)
@@ -36,7 +43,7 @@ function ConfirmDialog({
     setLoading(true)
     try {
       await onConfirm()
-      onOpenChange(false)
+      if (closeOnConfirm) onOpenChange(false)
     } finally {
       setLoading(false)
     }
@@ -53,10 +60,16 @@ function ConfirmDialog({
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+          >
             {cancelText}
           </Button>
           <Button
+            type="button"
             variant={destructive ? 'destructive' : 'default'}
             onClick={handleClick}
             disabled={loading}
