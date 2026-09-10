@@ -1,14 +1,21 @@
-import { useState, useRef } from 'react'
-import { Download, Upload, AlertTriangle } from 'lucide-react'
+import { useRef, useState, type ChangeEvent } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { AlertTriangle, Download, Upload } from 'lucide-react'
 import { toast } from 'sonner'
-import { exportAll, importAll } from '@/lib/db'
+import { exportAll, getDataCounts, importAll, parseBackupFile } from '@/lib/db'
 import type { BackupData } from '@/lib/db'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : '未知错误'
+}
 
 function Backup() {
-  const [importing, setImporting] = useState(false)
+  const [pending, setPending] = useState<BackupData | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const counts = useLiveQuery(() => getDataCounts(), [])
 
   const handleExport = async () => {
     try {
@@ -23,79 +30,35 @@ function Backup() {
       a.click()
       URL.revokeObjectURL(url)
       toast.success('备份导出成功')
-    } catch {
-      toast.error('导出失败')
+    } catch (err) {
+      toast.error(`导出失败：${errorMessage(err)}`)
     }
   }
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 选中文件后先解析校验，通过后再弹确认框，确认了才真正覆盖数据库
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    // 立即清空，否则连续选择同一个文件不会再触发 change
+    if (fileInputRef.current) fileInputRef.current.value = ''
     if (!file) return
 
-    setImporting(true)
-
     try {
-      const text = await file.text()
-      const data = JSON.parse(text) as BackupData
-
-      if (
-        !data.version ||
-        !Array.isArray(data.problems) ||
-        !Array.isArray(data.tags) ||
-        !Array.isArray(data.problemTags) ||
-        !Array.isArray(data.attempts)
-      ) {
-        throw new Error('无效的备份文件格式')
-      }
-
-      for (const p of data.problems) {
-        if (
-          typeof p !== 'object' ||
-          p === null ||
-          typeof p.title !== 'string' ||
-          typeof p.difficulty !== 'number'
-        ) {
-          throw new Error('备份数据中包含无效的题目记录')
-        }
-      }
-      for (const t of data.tags) {
-        if (typeof t !== 'object' || t === null || typeof t.name !== 'string') {
-          throw new Error('备份数据中包含无效的标签记录')
-        }
-      }
-      for (const pt of data.problemTags) {
-        if (
-          typeof pt !== 'object' ||
-          pt === null ||
-          typeof pt.problemId !== 'number' ||
-          typeof pt.tagId !== 'number'
-        ) {
-          throw new Error('备份数据中包含无效的题目-标签关联记录')
-        }
-      }
-      for (const a of data.attempts) {
-        if (
-          typeof a !== 'object' ||
-          a === null ||
-          typeof a.problemId !== 'number' ||
-          typeof a.date !== 'string' ||
-          typeof a.status !== 'string'
-        ) {
-          throw new Error('备份数据中包含无效的做题记录')
-        }
-      }
-
-      await importAll(data)
-      toast.success(
-        `导入成功：${data.problems.length} 题，${data.attempts.length} 条记录，${data.tags.length} 个标签`
-      )
+      setPending(parseBackupFile(await file.text()))
     } catch (err) {
-      toast.error(`导入失败：${err instanceof Error ? err.message : '未知错误'}`)
-    } finally {
-      setImporting(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      toast.error(`导入失败：${errorMessage(err)}`)
+    }
+  }
+
+  const handleConfirmImport = async () => {
+    if (!pending) return
+    try {
+      await importAll(pending)
+      toast.success(
+        `导入成功：${pending.problems.length} 题，${pending.attempts.length} 条记录，${pending.tags.length} 个标签`
+      )
+      setPending(null)
+    } catch (err) {
+      toast.error(`导入失败：${errorMessage(err)}`)
     }
   }
 
@@ -126,26 +89,43 @@ function Backup() {
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            导入将清除并替换当前全部数据，建议先导出备份。
+            {counts
+              ? `当前共有 ${counts.problems} 道题、${counts.attempts} 条记录、${counts.tags} 个标签。导入会将其全部清除并替换，建议先导出备份。`
+              : '导入会清除并替换当前全部数据，建议先导出备份。'}
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".json"
-            onChange={handleImport}
+            accept=".json,application/json"
+            onChange={handleFileChange}
             className="hidden"
           />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-          >
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
             <Upload className="mr-1.5 h-4 w-4" />
-            {importing ? '导入中...' : '选择文件导入'}
+            选择文件导入
           </Button>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open) setPending(null)
+        }}
+        title="确认覆盖导入"
+        description={
+          pending
+            ? `将用备份中的 ${pending.problems.length} 道题、${pending.attempts.length} 条记录、${pending.tags.length} 个标签覆盖当前全部数据${
+                counts
+                  ? `（现有 ${counts.problems} 道题、${counts.attempts} 条记录、${counts.tags} 个标签）`
+                  : ''
+              }，此操作不可撤销。`
+            : ''
+        }
+        confirmText="覆盖导入"
+        destructive
+        onConfirm={handleConfirmImport}
+      />
     </div>
   )
 }
