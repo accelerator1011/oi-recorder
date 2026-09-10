@@ -24,7 +24,7 @@ import {
   getAllProblemTags,
 } from '@/lib/db'
 import { DIFFICULTY_MAP, DIFFICULTIES } from '@/lib/constants'
-import type { Tag } from '@/lib/types'
+import type { Attempt, ProblemTag, Tag } from '@/lib/types'
 import { toLocalDateString } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
@@ -93,34 +93,42 @@ function Dashboard() {
     const totalProblems = new Set(attempts.map((attempt) => attempt.problemId)).size
     const totalAttempts = attempts.length
     const totalTimeMin = attempts.reduce((s, a) => s + a.timeSpentMin, 0)
-    const todoCount = attempts.filter((a) => a.status !== 'AC').length
-    const acCount = attempts.filter((a) => a.status === 'AC').length
+
+    // 统计一律按「题目」去重：同一道题即使 AC 多次（含跨天重复提交）也只计一次，
+    // 并统一归到首次 AC 的那一天，避免把一题算成多题而虚高图表数值。
+    const firstAcByProblem = new Map<number, Attempt>()
+    for (const a of attempts) {
+      if (a.status !== 'AC') continue
+      const prev = firstAcByProblem.get(a.problemId)
+      if (!prev || a.date < prev.date) firstAcByProblem.set(a.problemId, a)
+    }
+    const acProblemCount = firstAcByProblem.size
+
+    // 进行中 = 有记录但尚未 AC 的题目数
+    const todoCount = totalProblems - acProblemCount
 
     const diffCounts: Record<number, number> = {}
     const tagCounts: Record<string, number> = {}
     const dateCounts: Record<string, number> = {}
 
-    const ptByProblemId = new Map<number, typeof allProblemTags>()
+    const ptByProblemId = new Map<number, ProblemTag[]>()
     for (const pt of allProblemTags) {
-      let arr = ptByProblemId.get(pt.problemId)
-      if (!arr) {
-        arr = []
-        ptByProblemId.set(pt.problemId, arr)
+      const arr = ptByProblemId.get(pt.problemId)
+      if (arr) {
+        arr.push(pt)
+      } else {
+        ptByProblemId.set(pt.problemId, [pt])
       }
-      arr.push(pt)
     }
 
-    for (const a of attempts) {
-      if (a.status !== 'AC') continue
-
+    for (const a of firstAcByProblem.values()) {
       const p = problemMap.get(a.problemId)
       if (p) {
         diffCounts[p.difficulty] = (diffCounts[p.difficulty] ?? 0) + 1
       }
       dateCounts[a.date] = (dateCounts[a.date] ?? 0) + 1
 
-      const ptRows = ptByProblemId.get(a.problemId) ?? []
-      for (const pt of ptRows) {
+      for (const pt of ptByProblemId.get(a.problemId) ?? []) {
         const tag = tagMap.get(pt.tagId)
         if (tag) {
           tagCounts[tag.name] = (tagCounts[tag.name] ?? 0) + 1
@@ -165,7 +173,7 @@ function Dashboard() {
       totalAttempts,
       totalTimeMin,
       todoCount,
-      acCount,
+      acProblemCount,
       byDifficulty,
       byTag,
       weeklyData,
@@ -207,7 +215,7 @@ function Dashboard() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={BookOpen} label="题目数" value={stats.totalProblems} />
-        <StatCard icon={CheckCircle} label="总记录" value={stats.totalAttempts} />
+        <StatCard icon={CheckCircle} label="已通过" value={stats.acProblemCount} />
         <StatCard icon={Clock} label="总耗时" value={`${stats.totalTimeMin} min`} />
         <StatCard icon={ListTodo} label="进行中" value={stats.todoCount} />
       </div>

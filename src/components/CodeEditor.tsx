@@ -28,19 +28,16 @@ function CodeEditor({ value, onChange, language, readOnly = false }: Props) {
   const fontSize = useStore((s) => s.codeFontSize)
 
   const extensions: Extension[] = useMemo(
-    () =>
-      [
-        EditorView.theme({
-          '.cm-scroller, .cm-content, .cm-line, .cm-gutters': {
-            fontFamily: CODE_FONT_FAMILY,
-          },
-        }),
-        ...(language
-          ? [LANG_EXTENSIONS[language]?.()].filter(
-              (ext): ext is Extension => ext !== undefined
-            )
-          : []),
-      ],
+    () => [
+      EditorView.theme({
+        '.cm-scroller, .cm-content, .cm-line, .cm-gutters': {
+          fontFamily: CODE_FONT_FAMILY,
+        },
+      }),
+      ...(language
+        ? [LANG_EXTENSIONS[language]?.()].filter((ext): ext is Extension => ext !== undefined)
+        : []),
+    ],
     [language]
   )
 

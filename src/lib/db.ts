@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
-import type { Attempt, Problem, ProblemTag, Tag } from './types'
+import type { Attempt, Difficulty, Language, Problem, ProblemTag, Status, Tag } from './types'
+import { DIFFICULTIES, LANGUAGE_OPTIONS, STATUS_COLORS } from './constants'
 
 class OIDatabase extends Dexie {
   problems!: Table<Problem>
@@ -9,6 +10,9 @@ class OIDatabase extends Dexie {
 
   constructor() {
     super('OiRecorderDB')
+    // 关于 luoguId：这里刻意不使用唯一索引（&luoguId）。IndexedDB 在 createIndex 阶段
+    // 若发现存量数据已有重复值（包括空串 ''）会抛出 ConstraintError 并导致整个数据库
+    // 无法打开，存量库无法保证干净。因此题号唯一性由 upsertProblem 在应用层保证。
     this.version(1).stores({
       problems: '++id, luoguId, difficulty',
       tags: '++id, &name',
@@ -32,36 +36,67 @@ export async function getAllProblems(): Promise<Problem[]> {
   return db.problems.toArray()
 }
 
+export function normalizeLuoguId(value: string | undefined): string | undefined {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : undefined
+}
+
+/**
+ * 按洛谷题号查找题目。返回最早创建（id 最小）的一条，保证结果稳定；
+ * 空串/空白视为「未填写题号」，直接返回 undefined。
+ */
 export async function getProblemByLuoguId(luoguId: string): Promise<Problem | undefined> {
-  return db.problems.where('luoguId').equals(luoguId).first()
+  const key = normalizeLuoguId(luoguId)
+  if (!key) return undefined
+  const matches = await db.problems.where('luoguId').equals(key).sortBy('id')
+  return matches[0]
+}
+
+/**
+ * 只阻止「新引入」的题号重复：如果题目本来就占用着这个题号（本次没改动），
+ * 则放行，避免历史脏数据（旧版本可能已存在重复题号）导致用户无法保存。
+ */
+async function assertLuoguIdFree(
+  luoguId: string | undefined,
+  selfId: number,
+  currentLuoguId: string | undefined
+): Promise<void> {
+  if (!luoguId || luoguId === currentLuoguId) return
+  const conflict = await getProblemByLuoguId(luoguId)
+  if (conflict && conflict.id !== selfId) {
+    throw new Error(`洛谷题号 ${luoguId} 已被「${conflict.title}」占用`)
+  }
 }
 
 export async function upsertProblem(
   data: Omit<Problem, 'id' | 'createdAt'>,
   id?: number
 ): Promise<number> {
+  const luoguId = normalizeLuoguId(data.luoguId)
+  const fields = { luoguId, title: data.title, difficulty: data.difficulty }
+
+  // 1) 按主键命中：只更新这三个字段，createdAt 保持原值
   if (id !== undefined) {
     const existing = await db.problems.get(id)
     if (existing) {
-      await db.problems.put({
-        ...existing,
-        luoguId: data.luoguId,
-        title: data.title,
-        difficulty: data.difficulty,
-      })
+      await assertLuoguIdFree(luoguId, id, normalizeLuoguId(existing.luoguId))
+      await db.problems.update(id, fields)
       return id
     }
   }
-  if (data.luoguId) {
-    const existing = await db.problems.where('luoguId').equals(data.luoguId).first()
-    if (existing) {
-      return existing.id!
+
+  // 2) 按洛谷题号命中：复用该题目，同时把本次提交的题名/难度写回去。
+  //    旧实现在这里直接 `return existing.id`，用户刚改好的题名和难度会被静默丢弃。
+  if (luoguId) {
+    const existing = await getProblemByLuoguId(luoguId)
+    if (existing?.id !== undefined) {
+      await db.problems.update(existing.id, fields)
+      return existing.id
     }
   }
-  return db.problems.put({
-    ...data,
-    createdAt: new Date(),
-  } as Problem)
+
+  // 3) 新建
+  return db.problems.add({ ...fields, createdAt: new Date() })
 }
 
 export async function getProblem(id: number): Promise<Problem | undefined> {
@@ -170,6 +205,23 @@ export async function getAllAttempts(): Promise<Attempt[]> {
   return db.attempts.orderBy('date').reverse().toArray()
 }
 
+/* ── Counts ───────────────────────────────────────────── */
+
+export interface DataCounts {
+  problems: number
+  tags: number
+  attempts: number
+}
+
+export async function getDataCounts(): Promise<DataCounts> {
+  const [problems, tags, attempts] = await Promise.all([
+    db.problems.count(),
+    db.tags.count(),
+    db.attempts.count(),
+  ])
+  return { problems, tags, attempts }
+}
+
 /* ── Backup ───────────────────────────────────────────── */
 
 export interface BackupData {
@@ -222,4 +274,194 @@ export async function importAll(data: BackupData): Promise<void> {
         }))
       )
   })
+}
+
+/* ── 备份文件解析与校验 ───────────────────────────────── */
+
+const STATUS_SET = new Set<string>(Object.keys(STATUS_COLORS))
+const LANGUAGE_SET = new Set<string>(LANGUAGE_OPTIONS)
+const DIFFICULTY_SET = new Set<number>(DIFFICULTIES)
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+function fail(message: string): never {
+  throw new Error(message)
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isValidDateString(value: unknown): value is string {
+  if (typeof value !== 'string' || !DATE_PATTERN.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  )
+}
+
+function toDate(value: unknown): Date {
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) return date
+  }
+  return new Date()
+}
+
+function readOptionalId(value: unknown, path: string, seen: Set<number>): number | undefined {
+  if (value === undefined) return undefined
+  if (!Number.isInteger(value)) fail(`${path} 必须是整数`)
+  const id = value as number
+  if (seen.has(id)) fail(`${path} 与前面的记录 id 重复（${id}）`)
+  seen.add(id)
+  return id
+}
+
+/**
+ * 解析并严格校验备份文件。
+ * 结构或取值有任何不合法之处都会抛出带定位信息的 Error，脏数据不会进入数据库；
+ * 返回的是规范化后的数据（题号去空白、createdAt 归一为 Date）。
+ */
+export function parseBackupFile(text: string): BackupData {
+  let raw: unknown
+  try {
+    raw = JSON.parse(text)
+  } catch {
+    fail('文件不是合法的 JSON')
+  }
+  if (!isPlainObject(raw)) fail('备份文件的最外层必须是一个对象')
+
+  if (typeof raw.version !== 'number') fail('缺少合法的 version 字段')
+  for (const key of ['problems', 'tags', 'problemTags', 'attempts'] as const) {
+    if (!Array.isArray(raw[key])) fail(`缺少 ${key} 数组`)
+  }
+
+  const problemRows = raw.problems as unknown[]
+  const tagRows = raw.tags as unknown[]
+  const problemTagRows = raw.problemTags as unknown[]
+  const attemptRows = raw.attempts as unknown[]
+
+  const problems: Problem[] = []
+  const problemIds = new Set<number>()
+  const luoguIdOwners = new Map<string, string>()
+  problemRows.forEach((item, index) => {
+    const path = `problems[${index}]`
+    if (!isPlainObject(item)) fail(`${path} 必须是对象`)
+    const id = item.id
+    if (!Number.isInteger(id)) fail(`${path}.id 必须是整数`)
+    if (problemIds.has(id as number)) fail(`${path}.id 与前面的题目重复（${String(id)}）`)
+    const title = typeof item.title === 'string' ? item.title.trim() : ''
+    if (!title) fail(`${path}.title 必须是非空字符串`)
+    if (!DIFFICULTY_SET.has(item.difficulty as number)) {
+      fail(`${path}.difficulty 必须是 1-8 之间的整数`)
+    }
+    const luoguId = typeof item.luoguId === 'string' ? normalizeLuoguId(item.luoguId) : undefined
+    if (luoguId) {
+      const owner = luoguIdOwners.get(luoguId)
+      if (owner !== undefined) {
+        fail(`${path}.luoguId ${luoguId} 与「${owner}」重复，无法确定归属`)
+      }
+      luoguIdOwners.set(luoguId, title)
+    }
+    problemIds.add(id as number)
+    problems.push({
+      id: id as number,
+      title,
+      difficulty: item.difficulty as Difficulty,
+      luoguId,
+      createdAt: toDate(item.createdAt),
+    })
+  })
+
+  const tags: Tag[] = []
+  const tagIds = new Set<number>()
+  const tagNames = new Set<string>()
+  tagRows.forEach((item, index) => {
+    const path = `tags[${index}]`
+    if (!isPlainObject(item)) fail(`${path} 必须是对象`)
+    const id = item.id
+    if (!Number.isInteger(id)) fail(`${path}.id 必须是整数`)
+    if (tagIds.has(id as number)) fail(`${path}.id 与前面的标签重复（${String(id)}）`)
+    const name = typeof item.name === 'string' ? item.name.trim() : ''
+    if (!name) fail(`${path}.name 必须是非空字符串`)
+    if (tagNames.has(name)) fail(`${path}.name 与前面的标签重名（${name}）`)
+    tagIds.add(id as number)
+    tagNames.add(name)
+    tags.push({ id: id as number, name })
+  })
+
+  const problemTags: ProblemTag[] = []
+  const problemTagIds = new Set<number>()
+  const problemTagPairs = new Set<string>()
+  problemTagRows.forEach((item, index) => {
+    const path = `problemTags[${index}]`
+    if (!isPlainObject(item)) fail(`${path} 必须是对象`)
+    const id = readOptionalId(item.id, `${path}.id`, problemTagIds)
+    const problemId = item.problemId
+    const tagId = item.tagId
+    if (!Number.isInteger(problemId) || !Number.isInteger(tagId)) {
+      fail(`${path} 的 problemId / tagId 必须是整数`)
+    }
+    if (!problemIds.has(problemId as number)) {
+      fail(`${path} 引用了不存在的题目 #${String(problemId)}`)
+    }
+    if (!tagIds.has(tagId as number)) fail(`${path} 引用了不存在的标签 #${String(tagId)}`)
+    const pair = `${String(problemId)}:${String(tagId)}`
+    if (problemTagPairs.has(pair)) {
+      fail(`${path} 与前面的记录重复（题目 #${String(problemId)} + 标签 #${String(tagId)}）`)
+    }
+    problemTagPairs.add(pair)
+    problemTags.push({ id, problemId: problemId as number, tagId: tagId as number })
+  })
+
+  const attempts: Attempt[] = []
+  const attemptIds = new Set<number>()
+  attemptRows.forEach((item, index) => {
+    const path = `attempts[${index}]`
+    if (!isPlainObject(item)) fail(`${path} 必须是对象`)
+    const id = readOptionalId(item.id, `${path}.id`, attemptIds)
+    const problemId = item.problemId
+    if (!Number.isInteger(problemId)) fail(`${path}.problemId 必须是整数`)
+    if (!problemIds.has(problemId as number)) {
+      fail(`${path} 引用了不存在的题目 #${String(problemId)}`)
+    }
+    const date = item.date
+    if (!isValidDateString(date)) fail(`${path}.date 必须是合法的 YYYY-MM-DD 日期`)
+    const status = item.status
+    if (typeof status !== 'string' || !STATUS_SET.has(status)) {
+      fail(`${path}.status 不是支持的状态（${String(status)}）`)
+    }
+    const language = item.language
+    if (typeof language !== 'string' || !LANGUAGE_SET.has(language)) {
+      fail(`${path}.language 不是支持的语言（${String(language)}）`)
+    }
+    const timeSpentMin = item.timeSpentMin
+    if (typeof timeSpentMin !== 'number' || !Number.isFinite(timeSpentMin) || timeSpentMin < 0) {
+      fail(`${path}.timeSpentMin 必须是非负数字`)
+    }
+    const code = item.code
+    if (typeof code !== 'string') fail(`${path}.code 必须是字符串`)
+    const notes = item.notes
+    if (typeof notes !== 'string') fail(`${path}.notes 必须是字符串`)
+    attempts.push({
+      id,
+      problemId: problemId as number,
+      date,
+      status: status as Status,
+      language: language as Language,
+      timeSpentMin,
+      code,
+      notes,
+      createdAt: toDate(item.createdAt),
+    })
+  })
+
+  return {
+    version: raw.version,
+    exportedAt: typeof raw.exportedAt === 'string' ? raw.exportedAt : new Date().toISOString(),
+    problems,
+    tags,
+    problemTags,
+    attempts,
+  }
 }
