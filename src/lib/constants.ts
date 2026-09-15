@@ -2,15 +2,54 @@ import type { Difficulty, Language, SelectableStatus, Status } from './types'
 
 export const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5, 6, 7, 8]
 
-export const DIFFICULTY_MAP: Record<Difficulty, { label: string; color: string }> = {
-  1: { label: '入门', color: '#fe4c61' },
-  2: { label: '普及-', color: '#f39c12' },
-  3: { label: '普及', color: '#ffc116' },
-  4: { label: '普及+/提高-', color: '#52c41a' },
-  5: { label: '提高', color: '#00bfa5' },
-  6: { label: '提高+/省选-', color: '#3498db' },
-  7: { label: '省选/NOI-', color: '#9b59b6' },
-  8: { label: 'NOI/NOI+/CTS', color: '#1e3a8a' },
+/**
+ * 每一级难度给出明暗两套颜色。
+ * 暗色变体不是简单提亮，而是保证与背景有足够对比度：
+ * 例如 8 级的 #1e3a8a 直接用在深色背景上几乎读不出来。
+ */
+export const DIFFICULTY_MAP: Record<
+  Difficulty,
+  { label: string; color: string; darkColor: string }
+> = {
+  1: { label: '入门', color: '#fe4c61', darkColor: '#ff8f98' },
+  2: { label: '普及-', color: '#f39c12', darkColor: '#f5b95c' },
+  3: { label: '普及', color: '#ffc116', darkColor: '#ffd75e' },
+  4: { label: '普及+/提高-', color: '#52c41a', darkColor: '#8ad964' },
+  5: { label: '提高', color: '#00bfa5', darkColor: '#4fd6c2' },
+  6: { label: '提高+/省选-', color: '#3498db', darkColor: '#74b9e8' },
+  7: { label: '省选/NOI-', color: '#9b59b6', darkColor: '#bd8ed2' },
+  8: { label: 'NOI/NOI+/CTS', color: '#1e3a8a', darkColor: '#9fbcf2' },
+}
+
+export interface DifficultyStyle {
+  label: string
+  /** 文字与描边色 */
+  color: string
+  /** 与 color 同色系的低透明度底色（#RRGGBBAA） */
+  background: string
+  border: string
+}
+
+/** 按当前主题取难度配色；底色与描边由文字色派生，避免三处各写一遍 */
+export function getDifficultyStyle(difficulty: Difficulty, darkMode: boolean): DifficultyStyle {
+  const info = DIFFICULTY_MAP[difficulty]
+  if (!info) {
+    // 兜底：历史数据里若存在越界难度，也不该让整个页面崩掉
+    const color = '#888780'
+    return {
+      label: `难度 ${String(difficulty)}`,
+      color,
+      background: `${color}20`,
+      border: `${color}40`,
+    }
+  }
+  const color = darkMode ? info.darkColor : info.color
+  return {
+    label: info.label,
+    color,
+    background: `${color}20`,
+    border: `${color}40`,
+  }
 }
 
 /** 表单可选项。历史遗留的「进行中」不再提供，非 AC 一律视为进行中 */

@@ -1,4 +1,5 @@
-import { DIFFICULTY_MAP } from '@/lib/constants'
+import { getDifficultyStyle } from '@/lib/constants'
+import { useStore } from '@/store/useStore'
 import type { Difficulty } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -8,7 +9,9 @@ interface Props {
 }
 
 function DifficultyBadge({ difficulty, size = 'md' }: Props) {
-  const info = DIFFICULTY_MAP[difficulty]
+  const darkMode = useStore((s) => s.darkMode)
+  const style = getDifficultyStyle(difficulty, darkMode)
+
   return (
     <span
       className={cn(
@@ -16,12 +19,12 @@ function DifficultyBadge({ difficulty, size = 'md' }: Props) {
         size === 'sm' ? 'px-1.5 py-0 text-xs' : 'px-2.5 py-0.5 text-sm'
       )}
       style={{
-        backgroundColor: info.color + '20',
-        color: info.color,
-        border: `1px solid ${info.color}40`,
+        backgroundColor: style.background,
+        color: style.color,
+        border: `1px solid ${style.border}`,
       }}
     >
-      {info.label}
+      {style.label}
     </span>
   )
 }
