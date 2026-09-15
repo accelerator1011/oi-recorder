@@ -57,7 +57,7 @@ function Sidebar() {
       <div className="flex h-14 shrink-0 items-center border-b border-border px-[20px]">
         <Tooltip delayDuration={150}>
           <TooltipTrigger asChild>
-            <Link to="/" className="flex items-center">
+            <Link to="/" className="flex items-center" aria-label="OI Recorder 首页">
               <Code2 className="h-6 w-6 shrink-0" />
               <span
                 className={cn(
