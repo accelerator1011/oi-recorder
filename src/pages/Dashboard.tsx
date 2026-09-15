@@ -18,10 +18,11 @@ import {
   Line,
 } from 'recharts'
 import { getAllAttempts, getAllProblems, getAllTags, getAllProblemTags } from '@/lib/db'
-import { DIFFICULTY_MAP, DIFFICULTIES } from '@/lib/constants'
+import { DIFFICULTIES, getDifficultyStyle } from '@/lib/constants'
 import { buildProblemIndex } from '@/lib/selectors'
+import { useStore } from '@/store/useStore'
 import type { Attempt } from '@/lib/types'
-import { toLocalDateString } from '@/lib/utils'
+import { boostSaturation, toLocalDateString } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -40,7 +41,7 @@ function ChartTooltip({ active, label, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null
 
   return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg">
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg duration-150 animate-in fade-in-0 motion-reduce:animate-none">
       {label !== undefined && label !== '' && (
         <p className="mb-1 font-medium text-muted-foreground">{label}</p>
       )}
@@ -75,6 +76,7 @@ function ChartEmpty({ children }: { children: ReactNode }) {
 }
 
 function Dashboard() {
+  const darkMode = useStore((s) => s.darkMode)
   const attempts = useLiveQuery(() => getAllAttempts(), [])
   const problems = useLiveQuery(() => getAllProblems(), [])
   const allTags = useLiveQuery(() => getAllTags(), [])
@@ -125,11 +127,16 @@ function Dashboard() {
       }
     }
 
-    const byDifficulty = DIFFICULTIES.map((d) => ({
-      name: DIFFICULTY_MAP[d].label,
-      value: diffCounts[d] ?? 0,
-      color: DIFFICULTY_MAP[d].color,
-    }))
+    const byDifficulty = DIFFICULTIES.map((d) => {
+      const style = getDifficultyStyle(d, darkMode)
+      // 图表填充色比徽章色更「实」一档：徽章需要浅色文字保证可读性，
+      // 而扇形只需要跟深色背景拉开层次，粉彩会显得发灰。
+      return {
+        name: style.label,
+        value: diffCounts[d] ?? 0,
+        color: boostSaturation(style.color),
+      }
+    })
 
     const byTag = Object.entries(tagCounts)
       .map(([name, count]) => ({ name, count }))
@@ -166,7 +173,7 @@ function Dashboard() {
       weeklyData,
       recent,
     }
-  }, [attempts, problems, allTags, allProblemTags])
+  }, [attempts, problems, allTags, allProblemTags, darkMode])
 
   if (!stats) {
     return (
@@ -236,7 +243,7 @@ function Dashboard() {
                         <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip content={ChartTooltip} />
+                    <Tooltip content={ChartTooltip} isAnimationActive={false} />
                   </PieChart>
                 </ResponsiveContainer>
               )
@@ -254,7 +261,11 @@ function Dashboard() {
                 <CartesianGrid {...CHART_CONFIG.grid} />
                 <XAxis dataKey="date" {...CHART_CONFIG.axis} />
                 <YAxis allowDecimals={false} {...CHART_CONFIG.axis} />
-                <Tooltip content={ChartTooltip} cursor={{ stroke: 'hsl(var(--border))' }} />
+                <Tooltip
+                  content={ChartTooltip}
+                  cursor={{ stroke: 'hsl(var(--border))' }}
+                  isAnimationActive={false}
+                />
                 <Line
                   type="monotone"
                   dataKey="做题数"
@@ -294,6 +305,7 @@ function Dashboard() {
                 <Tooltip
                   content={ChartTooltip}
                   cursor={{ fill: 'hsl(var(--muted))', opacity: 0.6 }}
+                  isAnimationActive={false}
                 />
                 <Bar
                   dataKey="count"
