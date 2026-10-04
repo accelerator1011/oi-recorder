@@ -16,12 +16,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/cn-physics3r/oi-recorder.git"
+    "url": "https://github.com/accelerator1011/oi-recorder.git"
   },
   "bugs": {
-    "url": "https://github.com/cn-physics3r/oi-recorder/issues"
+    "url": "https://github.com/accelerator1011/oi-recorder/issues"
   },
-  "homepage": "https://github.com/cn-physics3r/oi-recorder#readme",
+  "homepage": "https://github.com/accelerator1011/oi-recorder#readme",
   "license": "GPL-3.0",
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0",

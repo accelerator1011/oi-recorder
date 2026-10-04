@@ -30,7 +30,7 @@
 - pnpm：9 或更新版本，与仓库的锁文件格式兼容。
 
 ```bash
-git clone https://github.com/cn-physics3r/oi-recorder.git
+git clone https://github.com/accelerator1011/oi-recorder.git
 cd oi-recorder
 pnpm install --frozen-lockfile
 pnpm dev
@@ -112,4 +112,4 @@ public/        图标、静态托管的路由与缓存配置
 
 提交改动前运行 `pnpm test`、`pnpm lint`、`pnpm format:check` 和 `pnpm build`。仓库协作约定见 [AGENTS.md](AGENTS.md)。
 
-欢迎在 [GitHub](https://github.com/cn-physics3r/oi-recorder) 提交 Issue 和 Pull Request。本项目采用 [GPL-3.0](LICENSE) 许可证。
+欢迎在 [GitHub](https://github.com/accelerator1011/oi-recorder) 提交 Issue 和 Pull Request。本项目采用 [GPL-3.0](LICENSE) 许可证。
