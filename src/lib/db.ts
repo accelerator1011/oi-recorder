@@ -158,13 +158,35 @@ export async function getAllTags(): Promise<Tag[]> {
 export async function createTag(name: string): Promise<number> {
   const trimmed = name.trim()
   if (!trimmed) throw new Error('标签名不能为空')
-  const existing = await db.tags.where('name').equals(trimmed).first()
-  if (existing?.id !== undefined) return existing.id
-  return db.tags.put({ name: trimmed })
+  // 查重与写入放在同一个读写事务里：tags 表对 name 有唯一索引，
+  // 两个入口同时新建同名标签时，后到的那个必须拿到已有 id 而不是撞约束报错。
+  return db.transaction('rw', db.tags, async () => {
+    const existing = await db.tags.where('name').equals(trimmed).first()
+    if (existing?.id !== undefined) return existing.id
+    return db.tags.add({ name: trimmed })
+  })
 }
 
+/**
+ * 重命名标签。
+ * 唯一索引会在重名时抛底层 ConstraintError，界面拿到的只会是「重命名失败」，
+ * 所以这里先显式挡下空名与重名，给出能直接展示给用户的原因。
+ * 改成自己原来的名字不算重名，按无操作处理。
+ */
 export async function updateTag(id: number, name: string): Promise<void> {
-  await db.tags.update(id, { name: name.trim() })
+  const trimmed = name.trim()
+  if (!trimmed) throw new Error('标签名不能为空')
+  await db.transaction('rw', db.tags, async () => {
+    const existing = await db.tags.get(id)
+    if (!existing) throw new Error('标签不存在或已被删除')
+    if (existing.name !== trimmed) {
+      const conflict = await db.tags.where('name').equals(trimmed).first()
+      if (conflict && conflict.id !== id) {
+        throw new Error(`标签名「${trimmed}」已被占用，请换一个名字`)
+      }
+    }
+    await db.tags.update(id, { name: trimmed })
+  })
 }
 
 export async function deleteTag(id: number): Promise<void> {
@@ -197,11 +219,17 @@ export async function getTagsForProblem(problemId: number): Promise<Tag[]> {
 }
 
 export async function setProblemTags(problemId: number, tagIds: number[]): Promise<void> {
-  await db.transaction('rw', db.problemTags, async () => {
+  await db.transaction('rw', db.problemTags, db.tags, async () => {
+    // 表单里的选中态只存 id。标签若在另一个标签页被删掉，直接写入就会留下
+    // 指向不存在标签的关联行，标签页的用量统计也会因此算错。
+    const wanted = [...new Set(tagIds)]
+    if (wanted.length > 0) {
+      const found = await db.tags.where('id').anyOf(wanted).primaryKeys()
+      if (found.length !== wanted.length) throw new Error('所选标签已被删除，请重新选择')
+    }
     await db.problemTags.where('problemId').equals(problemId).delete()
-    const rows = tagIds.map((tagId) => ({ problemId, tagId }))
-    if (rows.length > 0) {
-      await db.problemTags.bulkAdd(rows)
+    if (wanted.length > 0) {
+      await db.problemTags.bulkAdd(wanted.map((tagId) => ({ problemId, tagId })))
     }
   })
 }
@@ -220,9 +248,12 @@ export async function saveRecord(
   attemptId?: number
 ): Promise<number> {
   if (!isValidDateString(attempt.date)) throw new Error('请填写合法的完成日期')
+  // 作用域必须包含 setProblemTags 用到的 db.tags：
+  // Dexie 的嵌套事务只允许引用父事务已声明的表，少一个就直接抛错。
   return db.transaction(
     'rw',
     db.problems,
+    db.tags,
     db.problemTags,
     db.attempts,
     db.attemptContents,

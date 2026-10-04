@@ -30,7 +30,7 @@ function Settings() {
               <p className="text-sm font-medium">深色模式</p>
               <p className="mt-0.5 text-xs text-muted-foreground">切换应用外观主题</p>
             </div>
-            <Switch checked={darkMode} onCheckedChange={toggleDarkMode} />
+            <Switch checked={darkMode} onCheckedChange={toggleDarkMode} aria-label="深色模式" />
           </div>
 
           <div className="flex items-center justify-between p-4">
@@ -42,7 +42,7 @@ function Settings() {
               value={defaultLanguage}
               onValueChange={(v) => setDefaultLanguage(v as Language)}
             >
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-[140px]" aria-label="默认语言">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -67,6 +67,7 @@ function Settings() {
                 max={24}
                 value={codeFontSize}
                 onChange={(e) => setCodeFontSize(Number(e.target.value))}
+                aria-label="代码字号"
                 className="w-28 accent-primary"
               />
               <span className="w-10 text-right text-sm tabular-nums">{codeFontSize}</span>
