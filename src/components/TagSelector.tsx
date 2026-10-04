@@ -20,24 +20,29 @@ function TagSelector({ selectedIds, onChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const selectedTags = useMemo(
-    () => allTags.filter((t) => selectedIds.includes(t.id!)),
+    () => allTags.filter((t) => t.id !== undefined && selectedIds.includes(t.id)),
     [allTags, selectedIds]
   )
 
   const availableTags = useMemo(
     () =>
       allTags.filter(
-        (t) => !selectedIds.includes(t.id!) && t.name.toLowerCase().includes(input.toLowerCase())
+        (t) =>
+          t.id !== undefined &&
+          !selectedIds.includes(t.id) &&
+          t.name.toLowerCase().includes(input.toLowerCase())
       ),
     [allTags, selectedIds, input]
   )
 
   const handleToggle = useCallback(
     (tag: Tag) => {
-      if (selectedIds.includes(tag.id!)) {
-        onChange(selectedIds.filter((id) => id !== tag.id))
+      const tagId = tag.id
+      if (tagId === undefined) return
+      if (selectedIds.includes(tagId)) {
+        onChange(selectedIds.filter((id) => id !== tagId))
       } else {
-        onChange([...selectedIds, tag.id!])
+        onChange([...selectedIds, tagId])
       }
     },
     [selectedIds, onChange]

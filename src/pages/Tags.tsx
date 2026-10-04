@@ -124,8 +124,10 @@ function Tags() {
         <Card>
           <div className="divide-y divide-border">
             {allTags.map((tag) => {
-              const count = usageCounts?.get(tag.id!) ?? 0
-              const isEditing = editingId === tag.id
+              const tagId = tag.id
+              if (tagId === undefined) return null
+              const count = usageCounts?.get(tagId) ?? 0
+              const isEditing = editingId === tagId
               return (
                 <div key={tag.id} className="flex items-center gap-3 px-4 py-3">
                   {isEditing ? (
@@ -135,7 +137,7 @@ function Tags() {
                         onChange={(e) => setEditName(e.target.value)}
                         className="flex-1"
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRename(tag.id!)
+                          if (e.key === 'Enter') handleRename(tagId)
                           if (e.key === 'Escape') setEditingId(null)
                         }}
                         autoFocus
@@ -143,7 +145,7 @@ function Tags() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleRename(tag.id!)}
+                        onClick={() => handleRename(tagId)}
                         aria-label="确认重命名"
                       >
                         <Check className="h-4 w-4 text-green-600" />
@@ -168,7 +170,7 @@ function Tags() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => {
-                          setEditingId(tag.id!)
+                          setEditingId(tagId)
                           setEditName(tag.name)
                         }}
                         aria-label={`编辑标签 ${tag.name}`}
@@ -181,7 +183,7 @@ function Tags() {
                         className="h-8 w-8"
                         onClick={() =>
                           setDeleteTarget({
-                            id: tag.id!,
+                            id: tagId,
                             name: tag.name,
                             count,
                           })

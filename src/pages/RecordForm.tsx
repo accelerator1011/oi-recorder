@@ -3,11 +3,9 @@ import { useParams, useNavigate, useBlocker, useBeforeUnload } from 'react-route
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  upsertProblem,
-  setProblemTags,
+  saveRecord,
+  isValidDateString,
   getTagsForProblem,
-  createAttempt,
-  updateAttempt,
   getAttempt,
   getAttemptDraft,
   getProblem,
@@ -43,11 +41,12 @@ function RecordForm() {
   const darkMode = useStore((s) => s.darkMode)
 
   const [loading, setLoading] = useState(isEditing)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [luoguId, setLuoguId] = useState('')
   const [title, setTitle] = useState('')
   const [difficulty, setDifficulty] = useState<Difficulty>(3)
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
-  const [editingProblemId, setEditingProblemId] = useState<number | undefined>(undefined)
   const [date, setDate] = useState(() => toLocalDateString(new Date()))
   // 用字符串保存，否则把输入框清空会立刻被 Number('') 变成 0，用户没法重新输入
   const [timeSpent, setTimeSpent] = useState('0')
@@ -70,9 +69,12 @@ function RecordForm() {
 
   const timeSpentMin = timeSpent.trim() === '' ? 0 : Number(timeSpent)
   const timeSpentValid = Number.isInteger(timeSpentMin) && timeSpentMin >= 0
+  const dateValid = isValidDateString(date)
 
   useEffect(() => {
     if (!isEditing) return
+    setLoading(true)
+    setLoadError(null)
 
     if (!Number.isInteger(numericId) || numericId <= 0) {
       toast.error('记录不存在')
@@ -107,7 +109,7 @@ function RecordForm() {
         ])
         if (cancelled) return
 
-        setEditingProblemId(problem.id)
+        if (!draft) throw new Error('记录不存在或已被删除')
         setLuoguId(problem.luoguId ?? '')
         setTitle(problem.title)
         setDifficulty(problem.difficulty)
@@ -116,11 +118,11 @@ function RecordForm() {
         setTimeSpent(String(attempt.timeSpentMin))
         setStatus(attempt.status)
         setLanguage(attempt.language)
-        setCode(draft?.code ?? '')
-        setNotes(draft?.notes ?? '')
+        setCode(draft.code)
+        setNotes(draft.notes)
         setDirtyFlag(false)
       } catch (err) {
-        if (!cancelled) toast.error(`加载记录失败：${getErrorMessage(err)}`)
+        if (!cancelled) setLoadError(`加载记录失败：${getErrorMessage(err)}`)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -129,7 +131,7 @@ function RecordForm() {
     return () => {
       cancelled = true
     }
-  }, [id, isEditing, navigate, numericId, setDirtyFlag])
+  }, [id, isEditing, navigate, numericId, setDirtyFlag, loadAttempt])
 
   // 拦截 SPA 内部跳转：侧边栏链接、卡片链接、浏览器前进/后退
   const blocker = useBlocker(
@@ -172,7 +174,7 @@ function RecordForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (saving || loading) return
+    if (saving || loading || loadError) return
 
     if (!title.trim()) {
       toast.error('请填写题名')
@@ -182,34 +184,23 @@ function RecordForm() {
       toast.error('耗时必须是非负整数')
       return
     }
+    if (!dateValid) {
+      toast.error('请填写合法的完成日期')
+      return
+    }
 
     setSaving(true)
     try {
-      const problemId = await upsertProblem(
+      await saveRecord(
         {
           luoguId: luoguId.trim() || undefined,
           title: title.trim(),
           difficulty,
         },
-        isEditing ? editingProblemId : undefined
+        selectedTagIds,
+        { date, status, language, timeSpentMin, code, notes },
+        isEditing ? numericId : undefined
       )
-      await setProblemTags(problemId, selectedTagIds)
-
-      const payload = {
-        problemId,
-        date,
-        status,
-        language,
-        timeSpentMin,
-        code,
-        notes,
-      }
-
-      if (isEditing) {
-        await updateAttempt(numericId, payload)
-      } else {
-        await createAttempt(payload)
-      }
       setDirtyFlag(false)
       toast.success(isEditing ? '记录已更新' : '记录已创建')
       navigate('/records')
@@ -228,6 +219,25 @@ function RecordForm() {
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-24">
+        <p role="alert" className="text-sm text-destructive">
+          {loadError}
+        </p>
+        <Button
+          type="button"
+          onClick={() => {
+            setLoading(true)
+            setLoadAttempt((value) => value + 1)
+          }}
+        >
+          重试
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -235,7 +245,11 @@ function RecordForm() {
           title={isEditing ? '编辑记录' : '新建记录'}
           description={dirty ? '有未保存的修改' : undefined}
           actions={
-            <Button type="submit" disabled={saving || !title.trim() || !timeSpentValid} size="sm">
+            <Button
+              type="submit"
+              disabled={saving || !title.trim() || !timeSpentValid || !dateValid}
+              size="sm"
+            >
               <Save className="mr-1.5 h-4 w-4" />
               {saving ? '保存中...' : '保存'}
             </Button>
@@ -345,12 +359,15 @@ function RecordForm() {
             <Input
               id="date"
               type="date"
+              required
+              aria-invalid={!dateValid}
               value={date}
               onChange={(e) => {
                 touch()
                 setDate(e.target.value)
               }}
             />
+            {!dateValid && <p className="text-xs text-destructive">请填写合法的完成日期</p>}
           </div>
 
           <div className="space-y-2">
