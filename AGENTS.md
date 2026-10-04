@@ -43,7 +43,7 @@ src/
   App.tsx       Layout, lazy page routes, transitions and error boundary
   main.tsx      React entry point
   index.css     Global styles and KaTeX styles
-tests/         Database and form regression tests; helpers.cjs loads TypeScript source
+tests/         Database, statistics and form regression tests; helpers.cjs loads TypeScript source
 public/        Icons and static-host SPA/cache configuration
 ```
 
@@ -56,7 +56,12 @@ public/        Icons and static-host SPA/cache configuration
 - Backups use version 1 with code and notes inline in each attempt. Validate files before confirming overwrite; reject missing attempt IDs before clearing any tables. Import all tables in one transaction.
 - Dates use local `YYYY-MM-DD` strings. Validate real calendar dates at the form and database write boundaries.
 - Editing a record changes its shared problem title, difficulty and tags. Deleting its final attempt also deletes the problem and its tag links; preserve the explicit confirmation.
+- `tags` has a unique index on `name`, so `createTag` and `updateTag` must validate first and raise a message a user can read instead of letting a raw Dexie `ConstraintError` escape. Renaming a tag to its own current name is a no-op, not a conflict.
+- `setProblemTags` must reject tag IDs whose tag row is gone, because a form only holds IDs and the tag may have been deleted in another tab. `saveRecord` therefore has to include `db.tags` in its transaction scope: Dexie rejects a nested transaction that touches a table the parent did not declare.
 - Count passed problems once, on their first AC date. A problem with attempts but no AC counts as in progress. Difficulty, algorithm distribution and the seven-day trend count passed problems.
+- Keep the counting rules in `selectors.ts` as pure functions (`computeProblemStats`, `buildWeeklyTrend`, `buildRecentViews`, `filterAttemptViews`), not inside component `useMemo` bodies, so they stay testable. Pass `today` in rather than reading the clock, and never mutate query results while building view data.
+- An attempt whose problem row no longer exists is an orphan: exclude it from every problem-level statistic so the passed-problem card and the charts cannot disagree. Record and elapsed-time totals still count it.
+- Search terms are trimmed before filtering, so a whitespace-only query means "no filter" rather than an empty result list.
 - Keep unsaved-change protection for internal navigation and browser unload. A failed edit load must show an error/retry state and must not expose a submittable default form.
 - Component modules should export components and types only. Check persisted optional IDs before using them, and avoid mutating query results when building view data.
 
@@ -65,3 +70,4 @@ public/        Icons and static-host SPA/cache configuration
 `tests/helpers.cjs` transpiles the actual TypeScript modules for the Node.js runner.
 Database tests execute Dexie against isolated fake-indexeddb databases; form tests use React with jsdom and mocked dependencies.
 Tests must never read or clear a user's browser database. Cover rollback, concurrent writes, backup preservation and form error states when changing those behaviors.
+`parseBackupFile` guards the only path that clears every table, so each of its reject branches needs a test whenever validation changes. Statistics rules in `selectors.ts` are covered by `tests/stats.test.cjs`, tag naming and linking rules by `tests/tags.test.cjs`.
