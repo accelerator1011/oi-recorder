@@ -16,10 +16,15 @@ function MarkdownEditor({ value, onChange }: Props) {
 
   return (
     <div className="overflow-hidden rounded-lg border bg-background">
-      <div className="flex items-center border-b bg-muted/30">
+      <div
+        className="flex items-center border-b bg-muted/30"
+        role="group"
+        aria-label="笔记视图切换"
+      >
         <button
           type="button"
           onClick={() => setPreview(false)}
+          aria-pressed={!preview}
           className={cn(
             'flex items-center gap-1 px-3 py-1.5 text-sm transition-colors',
             !preview
@@ -33,6 +38,7 @@ function MarkdownEditor({ value, onChange }: Props) {
         <button
           type="button"
           onClick={() => setPreview(true)}
+          aria-pressed={preview}
           className={cn(
             'flex items-center gap-1 px-3 py-1.5 text-sm transition-colors',
             preview
@@ -56,6 +62,7 @@ function MarkdownEditor({ value, onChange }: Props) {
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Markdown 笔记..."
+            aria-label="Markdown 笔记"
             className="min-h-[200px] w-full resize-y bg-transparent p-4 font-mono text-sm placeholder:text-muted-foreground focus:outline-none"
           />
         )}

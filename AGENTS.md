@@ -52,7 +52,7 @@ public/        Icons and static-host SPA/cache configuration
 - All records live in the browser's `OiRecorderDB` IndexedDB database. UI settings live in localStorage.
 - Problems, tags, problemTags and attempts store metadata. attemptContents stores code and notes, keyed by attempt ID. Lists and statistics should query metadata without reading all contents.
 - Use `saveRecord` to save a form. Problem fields, tags, attempt metadata and content must commit together. Preserve the write transaction around Luogu ID lookup and upsert for concurrency safety.
-- Preserve existing databases through Dexie versioned migrations. Keep historical duplicate Luogu IDs readable and restorable; backup relationships use numeric IDs. Avoid adding a unique Luogu ID index without a migration for existing duplicates.
+- Preserve existing databases through Dexie versioned migrations. Keep historical duplicate Luogu IDs readable and restorable; backup relationships use numeric IDs. Avoid adding a unique Luogu ID index without a migration for existing duplicates. The v3 upgrade moves inline `code`/`notes` into `attemptContents` and must keep working for v1 and v2 databases alike.
 - Backups use version 1 with code and notes inline in each attempt. Validate files before confirming overwrite; reject missing attempt IDs before clearing any tables. Import all tables in one transaction.
 - Dates use local `YYYY-MM-DD` strings. Validate real calendar dates at the form and database write boundaries.
 - Editing a record changes its shared problem title, difficulty and tags. Deleting its final attempt also deletes the problem and its tag links; preserve the explicit confirmation.
@@ -63,6 +63,8 @@ public/        Icons and static-host SPA/cache configuration
 - An attempt whose problem row no longer exists is an orphan: exclude it from every problem-level statistic so the passed-problem card and the charts cannot disagree. Record and elapsed-time totals still count it.
 - Search terms are trimmed before filtering, so a whitespace-only query means "no filter" rather than an empty result list.
 - Keep unsaved-change protection for internal navigation and browser unload. A failed edit load must show an error/retry state and must not expose a submittable default form.
+- `ConfirmDialog` catches errors from `onConfirm` itself, shows the reason and stays open. Callers may still handle their own errors, but a rejection must never surface as an unhandled promise rejection.
+- Every interactive control needs an accessible name. Icon-only buttons get `aria-label`; CodeMirror's editable area needs `EditorView.contentAttributes`; the tag input is a `combobox` whose `aria-expanded` must reflect whether the dropdown is actually visible.
 - Component modules should export components and types only. Check persisted optional IDs before using them, and avoid mutating query results when building view data.
 
 ## Regression tests
@@ -71,3 +73,4 @@ public/        Icons and static-host SPA/cache configuration
 Database tests execute Dexie against isolated fake-indexeddb databases; form tests use React with jsdom and mocked dependencies.
 Tests must never read or clear a user's browser database. Cover rollback, concurrent writes, backup preservation and form error states when changing those behaviors.
 `parseBackupFile` guards the only path that clears every table, so each of its reject branches needs a test whenever validation changes. Statistics rules in `selectors.ts` are covered by `tests/stats.test.cjs`, tag naming and linking rules by `tests/tags.test.cjs`.
+`tests/migration.test.cjs` builds real v1 and v2 databases and upgrades them, because the code/notes migration only ever runs on a user's existing data and cannot be covered by an import test.

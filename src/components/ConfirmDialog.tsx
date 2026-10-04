@@ -7,7 +7,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { getErrorMessage } from '@/lib/utils'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -44,6 +46,10 @@ function ConfirmDialog({
     try {
       await onConfirm()
       if (closeOnConfirm) onOpenChange(false)
+    } catch (err) {
+      // 调用方忘了自己捕获时，这里兜住：否则会变成未处理的 promise rejection，
+      // 用户只能对着一个没反应的对话框发呆。对话框保持打开，便于就地重试。
+      toast.error(getErrorMessage(err))
     } finally {
       setLoading(false)
     }

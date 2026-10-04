@@ -35,6 +35,9 @@ function TagSelector({ selectedIds, onChange }: Props) {
     [allTags, selectedIds, input]
   )
 
+  // 下拉是否真的可见，aria-expanded 要反映这个而不是 showDropdown
+  const dropdownVisible = showDropdown && Boolean(input || availableTags.length > 0)
+
   const handleToggle = useCallback(
     (tag: Tag) => {
       const tagId = tag.id
@@ -102,6 +105,10 @@ function TagSelector({ selectedIds, onChange }: Props) {
           }}
           onFocus={() => setShowDropdown(true)}
           placeholder={selectedTags.length === 0 ? '输入算法标签...' : ''}
+          role="combobox"
+          aria-expanded={dropdownVisible}
+          aria-autocomplete="list"
+          aria-label="算法标签"
           className="min-w-[100px] flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -117,12 +124,18 @@ function TagSelector({ selectedIds, onChange }: Props) {
         />
       </div>
 
-      {showDropdown && (input || availableTags.length > 0) && (
-        <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md">
+      {dropdownVisible && (
+        <div
+          role="listbox"
+          aria-label="标签候选"
+          className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+        >
           {availableTags.map((tag) => (
             <button
               key={tag.id}
               type="button"
+              role="option"
+              aria-selected={false}
               onClick={() => {
                 handleToggle(tag)
                 setInput('')

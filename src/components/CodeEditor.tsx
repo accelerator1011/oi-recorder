@@ -34,11 +34,17 @@ function CodeEditor({ value, onChange, language, readOnly = false }: Props) {
           fontFamily: CODE_FONT_FAMILY,
         },
       }),
+      // CodeMirror 的可编辑区是 contenteditable，自身没有可读名称，
+      // 不加的话读屏只会念出一段没有上下文的编辑区。
+      EditorView.contentAttributes.of({
+        'aria-label': readOnly ? '代码（只读）' : '代码编辑器',
+        ...(readOnly ? { 'aria-readonly': 'true' } : {}),
+      }),
       ...(language
         ? [LANG_EXTENSIONS[language]?.()].filter((ext): ext is Extension => ext !== undefined)
         : []),
     ],
-    [language]
+    [language, readOnly]
   )
 
   const style = useMemo(() => ({ fontSize: `${fontSize}px` }), [fontSize])
