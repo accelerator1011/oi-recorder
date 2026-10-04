@@ -19,10 +19,14 @@ import {
 } from 'recharts'
 import { getAllAttempts, getAllProblems, getAllTags, getAllProblemTags } from '@/lib/db'
 import { DIFFICULTIES, getDifficultyStyle } from '@/lib/constants'
-import { buildProblemIndex } from '@/lib/selectors'
+import {
+  buildProblemIndex,
+  buildRecentViews,
+  buildWeeklyTrend,
+  computeProblemStats,
+} from '@/lib/selectors'
 import { useStore } from '@/store/useStore'
-import type { Attempt } from '@/lib/types'
-import { boostSaturation, toLocalDateString } from '@/lib/utils'
+import { boostSaturation } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -85,47 +89,8 @@ function Dashboard() {
   const stats = useMemo(() => {
     if (!attempts || !problems || !allTags || !allProblemTags) return null
 
-    const { problemMap, tagMap, problemTagRows, tagsByProblemId } = buildProblemIndex(
-      problems,
-      allTags,
-      allProblemTags
-    )
-
-    const totalProblems = new Set(attempts.map((attempt) => attempt.problemId)).size
-    const totalAttempts = attempts.length
-    const totalTimeMin = attempts.reduce((s, a) => s + a.timeSpentMin, 0)
-
-    // 统计一律按「题目」去重：同一道题即使 AC 多次（含跨天重复提交）也只计一次，
-    // 并统一归到首次 AC 的那一天，避免把一题算成多题而虚高图表数值。
-    const firstAcByProblem = new Map<number, Attempt>()
-    for (const a of attempts) {
-      if (a.status !== 'AC') continue
-      const prev = firstAcByProblem.get(a.problemId)
-      if (!prev || a.date < prev.date) firstAcByProblem.set(a.problemId, a)
-    }
-    const acProblemCount = firstAcByProblem.size
-
-    // 进行中 = 有记录但尚未 AC 的题目数
-    const todoCount = totalProblems - acProblemCount
-
-    const diffCounts: Record<number, number> = {}
-    const tagCounts: Record<string, number> = {}
-    const dateCounts: Record<string, number> = {}
-
-    for (const a of firstAcByProblem.values()) {
-      const p = problemMap.get(a.problemId)
-      if (p) {
-        diffCounts[p.difficulty] = (diffCounts[p.difficulty] ?? 0) + 1
-      }
-      dateCounts[a.date] = (dateCounts[a.date] ?? 0) + 1
-
-      for (const pt of problemTagRows.get(a.problemId) ?? []) {
-        const tag = tagMap.get(pt.tagId)
-        if (tag) {
-          tagCounts[tag.name] = (tagCounts[tag.name] ?? 0) + 1
-        }
-      }
-    }
+    const index = buildProblemIndex(problems, allTags, allProblemTags)
+    const summary = computeProblemStats(attempts, index)
 
     const byDifficulty = DIFFICULTIES.map((d) => {
       const style = getDifficultyStyle(d, darkMode)
@@ -133,46 +98,25 @@ function Dashboard() {
       // 而扇形只需要跟深色背景拉开层次，粉彩会显得发灰。
       return {
         name: style.label,
-        value: diffCounts[d] ?? 0,
+        value: summary.acByDifficulty.get(d) ?? 0,
         color: boostSaturation(style.color),
       }
     })
 
-    const byTag = Object.entries(tagCounts)
+    const byTag = [...summary.acByTagName]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 15)
 
-    const today = new Date()
-    const weeklyData = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(today)
-      d.setDate(d.getDate() - 6 + i)
-      const ds = toLocalDateString(d)
-      const dayLabel = `${d.getMonth() + 1}/${d.getDate()}`
-      return { date: dayLabel, fullDate: ds, 做题数: dateCounts[ds] ?? 0 }
-    })
-
-    const recent = attempts
-      .slice()
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 5)
-      .map((a) =>
-        Object.assign({}, a, {
-          problem: problemMap.get(a.problemId),
-          tags: tagsByProblemId.get(a.problemId) ?? [],
-        })
-      )
-
     return {
-      totalProblems,
-      totalAttempts,
-      totalTimeMin,
-      todoCount,
-      acProblemCount,
+      ...summary,
       byDifficulty,
       byTag,
-      weeklyData,
-      recent,
+      weeklyData: buildWeeklyTrend(summary.acByDate, new Date()).map((point) => ({
+        date: point.label,
+        做题数: point.solved,
+      })),
+      recent: buildRecentViews(attempts, index),
     }
   }, [attempts, problems, allTags, allProblemTags, darkMode])
 
@@ -325,27 +269,32 @@ function Dashboard() {
           <CardTitle className="text-sm font-medium">最近记录</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
-          {stats.recent.map((item) => (
+          {stats.recent.map(({ attempt, problem, tags }) => (
             <Link
-              key={item.id}
-              to={item.problem ? `/problems/${item.problem.id}` : '/records'}
+              key={attempt.id}
+              to={`/problems/${problem.id}`}
               className="flex flex-wrap items-center gap-2 rounded-md p-2 text-sm transition-colors hover:bg-muted sm:flex-nowrap sm:gap-3"
             >
               <span className="w-20 shrink-0 font-mono text-xs text-muted-foreground">
-                {item.date}
+                {attempt.date}
               </span>
-              {item.problem && <DifficultyBadge difficulty={item.problem.difficulty} size="sm" />}
+              <DifficultyBadge difficulty={problem.difficulty} size="sm" />
               <span className="truncate font-medium">
-                {item.problem?.luoguId && (
+                {problem.luoguId && (
                   <span className="mr-1 font-mono text-xs text-muted-foreground">
-                    {item.problem.luoguId}
+                    {problem.luoguId}
                   </span>
                 )}
-                {item.problem?.title ?? '(未知)'}
+                {problem.title}
               </span>
               <div className="hidden flex-1 sm:block" />
-              <StatusBadge status={item.status} size="sm" />
-              <span className="text-xs text-muted-foreground">{item.timeSpentMin}min</span>
+              {tags.length > 0 && (
+                <span className="truncate text-xs text-muted-foreground">
+                  {tags.map((tag) => tag.name).join(' · ')}
+                </span>
+              )}
+              <StatusBadge status={attempt.status} size="sm" />
+              <span className="text-xs text-muted-foreground">{attempt.timeSpentMin}min</span>
             </Link>
           ))}
         </CardContent>
