@@ -156,11 +156,12 @@ function Dashboard() {
       .slice()
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 5)
-      .map((a) => ({
-        ...a,
-        problem: problemMap.get(a.problemId),
-        tags: tagsByProblemId.get(a.problemId) ?? [],
-      }))
+      .map((a) =>
+        Object.assign({}, a, {
+          problem: problemMap.get(a.problemId),
+          tags: tagsByProblemId.get(a.problemId) ?? [],
+        })
+      )
 
     return {
       totalProblems,

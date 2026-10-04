@@ -1,233 +1,115 @@
-<div align="center">
-
 # OI Recorder
 
-**信息竞赛做题记录工具**
+信息竞赛做题记录工具。记录代码、笔记、提交状态和耗时，查看做题进度。所有记录保存在当前浏览器中，无需后端服务。
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg)](https://vitejs.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-blue.svg)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg)](https://vite.dev/)
 
-一个专为信息学竞赛（OI）选手设计的做题记录管理工具，帮助你系统化地记录、分析和回顾做题过程。
+## 功能
 
-[功能特性](#功能特性) | [快速开始](#快速开始) | [技术栈](#技术栈) | [项目结构](#项目结构)
+- **记录管理**：新建、编辑和删除记录；按题号、题名、标签搜索，按难度和状态筛选。
+- **题目与标签**：可选洛谷题号、8 级难度、自定义算法标签；同一道题可有多条记录。
+- **提交状态**：AC、部分分、WA、TLE、MLE、RE、CE；兼容历史数据中的「进行中」。
+- **代码与笔记**：支持记录 C++、C、Python、Java、Pascal 代码，其中 C/C++、Python 提供语法高亮；笔记支持 Markdown、表格和数学公式。
+- **首页统计**：题目数、已通过题目数、总耗时、进行中题目数，以及难度分布、算法分布、近 7 日趋势和最近记录。
+- **备份恢复**：导出包含代码、笔记的 JSON 备份，校验后确认覆盖导入。
+- **界面与离线使用**：深浅色主题、响应式布局、默认语言和代码字号设置；PWA 可安装并在缓存完成后离线使用。
+- **保存保护**：未保存修改的离开提示；保存失败时回滚整条记录的修改；编辑加载失败时提供重试。
 
-</div>
+### 统计口径
 
----
-
-## 功能特性
-
-### 核心功能
-
-- **做题记录管理** - 记录每道题的解题过程，包括代码、思路、耗时等
-- **多状态支持** - 支持 AC、部分分、WA、TLE、MLE、RE、CE 等状态；非 AC 的记录在统计中视为「进行中」
-- **多语言支持** - 支持 C++、C、Python、Java、Pascal 等编程语言
-- **难度分级** - 8 级难度体系，从入门到 NOI/CTS
-- **标签系统** - 自定义算法标签，灵活分类题目
-- **洛谷 ID 关联** - 支持关联洛谷题目 ID
-
-### 数据分析
-
-- **仪表盘统计** - 直观展示做题数量、耗时、AC 率等关键指标
-- **难度分布图** - 饼图展示各难度级别的题目分布
-- **算法分布图** - 柱状图展示各算法类型的做题情况
-- **趋势分析** - 折线图展示近 7 日做题趋势
-
-### 数据安全
-
-- **本地存储** - 所有数据存储在浏览器 IndexedDB，无需服务器
-- **备份恢复** - 支持 JSON 格式的数据导入导出
-- **PWA 支持** - 可安装为桌面应用，支持离线使用
-
-### 用户体验
-
-- **暗色模式** - 支持亮色/暗色主题切换
-- **响应式设计** - 适配不同屏幕尺寸
-- **流畅动画** - 页面切换平滑过渡
-- **代码高亮** - 内置代码编辑器，支持 C++/Python 语法高亮
-- **Markdown 支持** - 笔记支持 Markdown 语法，包括数学公式
+「已通过」按题目去重，多次 AC 只计一次，并归到首次 AC 的日期。难度分布、算法分布和近 7 日趋势也使用这一口径；算法标签可重叠，因此各标签数量之和可能超过已通过题目数。「进行中」是已有记录但尚无 AC 的题目数。总耗时累加所有记录的耗时。
 
 ## 快速开始
 
 ### 环境要求
 
-- [Node.js](https://nodejs.org/) >= 20.19（推荐 22 LTS）
-- [pnpm](https://pnpm.io/) >= 8 (推荐)
-
-### 安装
+- Node.js：`^22.22.2 || ^24.15.0 || >=26.0.0`，推荐 Node.js 24 LTS（24.15.0 或更新版本）。测试依赖 jsdom 要求这些版本。
+- pnpm：9 或更新版本，与仓库的锁文件格式兼容。
 
 ```bash
-# 克隆项目
-git clone https://github.com/your-username/oi-recorder.git
+git clone https://github.com/cn-physics3r/oi-recorder.git
 cd oi-recorder
-
-# 安装依赖
-pnpm install
-```
-
-### 开发
-
-```bash
-# 启动开发服务器
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-访问 http://localhost:5173 查看应用。
+开发服务器默认地址为 http://localhost:5173；端口被占用时以终端输出为准。
 
-### 构建
+### 常用命令
 
-```bash
-# 类型检查 + 构建
-pnpm build
+| 命令                | 说明                                   |
+| ------------------- | -------------------------------------- |
+| `pnpm dev`          | 启动开发服务器                         |
+| `pnpm build`        | TypeScript 检查并构建，输出到 `dist/`  |
+| `pnpm preview`      | 本地预览已构建的生产版本               |
+| `pnpm test`         | 运行数据库与表单回归测试               |
+| `pnpm type-check`   | 单独运行 TypeScript 检查               |
+| `pnpm lint`         | Oxlint 检查                            |
+| `pnpm lint:fix`     | 自动修复支持的 Lint 问题               |
+| `pnpm format:check` | 检查源码、测试和根目录配置、文档的格式 |
+| `pnpm format`       | 格式化上述文件                         |
 
-# 预览构建结果
-pnpm preview
-```
+测试使用 Node.js 内置测试运行器、fake-indexeddb 和 jsdom，覆盖备份内容保留、保存回滚、并发题号写入、日期校验和编辑加载失败重试。测试数据库与用户浏览器的数据隔离。
 
-### 代码检查
+### 部署
 
-```bash
-# 运行 lint
-pnpm lint
-
-# 格式化代码
-pnpm format
-```
-
-## 技术栈
-
-### 核心框架
-
-| 技术                                          | 版本 | 说明       |
-| --------------------------------------------- | ---- | ---------- |
-| [React](https://react.dev/)                   | 19   | 用户界面库 |
-| [TypeScript](https://www.typescriptlang.org/) | 6.0  | 类型安全   |
-| [Vite](https://vitejs.dev/)                   | 8    | 构建工具   |
-| [React Router](https://reactrouter.com/)      | 6    | 客户端路由 |
-
-### UI 组件
-
-| 技术                                            | 说明            |
-| ----------------------------------------------- | --------------- |
-| [Tailwind CSS](https://tailwindcss.com/)        | 原子化 CSS 框架 |
-| [shadcn/ui](https://ui.shadcn.com/)             | 可复用组件库    |
-| [Radix UI](https://www.radix-ui.com/)           | 无样式基础组件  |
-| [Lucide React](https://lucide.dev/)             | 图标库          |
-| [Framer Motion](https://www.framer.com/motion/) | 动画库          |
-
-### 数据与状态
-
-| 技术                                     | 说明           |
-| ---------------------------------------- | -------------- |
-| [Dexie.js](https://dexie.org/)           | IndexedDB 封装 |
-| [Zustand](https://zustand-demo.pmnd.rs/) | 轻量级状态管理 |
-
-### 功能增强
-
-| 技术                                                         | 说明          |
-| ------------------------------------------------------------ | ------------- |
-| [Recharts](https://recharts.org/)                            | 图表组件      |
-| [CodeMirror](https://codemirror.net/)                        | 代码编辑器    |
-| [react-markdown](https://github.com/remarkjs/react-markdown) | Markdown 渲染 |
-| [KaTeX](https://katex.org/)                                  | 数学公式渲染  |
-| [Sonner](https://sonner.emilkowal.dev/)                      | Toast 通知    |
-
-### 开发工具
-
-| 技术                                                 | 说明       |
-| ---------------------------------------------------- | ---------- |
-| [Oxlint](https://oxc.rs/docs/guide/usage/linter)     | 代码检查   |
-| [Prettier](https://prettier.io/)                     | 代码格式化 |
-| [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) | PWA 支持   |
-
-## 项目结构
-
-```
-oi-recorder/
-├── public/                    # 静态资源
-│   ├── favicon.svg
-│   ├── icon-192.png
-│   ├── icon-512.png
-│   └── icon-maskable-*.png
-├── src/
-│   ├── components/            # React 组件
-│   │   ├── ui/               # shadcn/ui 基础组件
-│   │   ├── Sidebar.tsx       # 侧边栏导航
-│   │   ├── CodeEditor.tsx    # 代码编辑器
-│   │   ├── MarkdownEditor.tsx # Markdown 编辑器
-│   │   └── ...
-│   ├── pages/                # 页面组件
-│   │   ├── Dashboard.tsx     # 仪表盘
-│   │   ├── RecordList.tsx    # 记录列表
-│   │   ├── RecordForm.tsx    # 记录表单
-│   │   ├── ProblemDetail.tsx # 题目详情
-│   │   ├── Tags.tsx          # 标签管理
-│   │   ├── Backup.tsx        # 备份恢复
-│   │   └── Settings.tsx      # 设置
-│   ├── lib/                  # 核心库
-│   │   ├── db.ts            # 数据库操作
-│   │   ├── types.ts         # TypeScript 类型
-│   │   ├── constants.ts     # 常量定义
-│   │   ├── selectors.ts     # 跨表 join 与派生数据
-│   │   └── utils.ts         # 工具函数
-│   ├── store/                # 状态管理
-│   │   └── useStore.ts      # Zustand store
-│   ├── App.tsx               # 根组件
-│   ├── main.tsx              # 入口文件
-│   └── index.css             # 全局样式
-├── index.html                # HTML 模板
-├── package.json              # 项目配置
-├── tsconfig.json             # TypeScript 配置
-├── vite.config.ts            # Vite 配置
-├── tailwind.config.js        # Tailwind 配置
-├── .oxlintrc.json            # Oxlint 配置
-├── .prettierrc               # Prettier 配置
-├── .editorconfig             # 编辑器配置
-└── LICENSE                   # GPL 3.0 许可证
-```
+将 `pnpm build` 生成的 `dist/` 部署到静态网站托管服务的根路径。使用 HTTPS（本地 localhost 除外）以启用 Service Worker 和 PWA。托管服务需要将 `/records/...` 等前端路由回退到 `index.html`；`public/_redirects` 提供兼容该格式的平台所需的 SPA 配置，`public/_headers` 提供入口和 Service Worker 的缓存配置。其他平台需要配置等效规则。
 
 ## 使用说明
 
-### 创建做题记录
+### 新建与编辑
 
-1. 点击侧边栏的「新建记录」
-2. 填写题目信息（标题、难度、洛谷 ID 等）
-3. 选择编程语言和状态
-4. 编写代码和解题笔记
-5. 保存记录
+1. 点击侧边栏「新建记录」。
+2. 填写题名、难度和可选洛谷题号；已有题号会在失焦时填入已有题目信息。
+3. 在记录表单中选择或创建算法标签，填写完成日期、非负整数耗时、状态和语言。
+4. 输入代码、Markdown 笔记并保存。
+5. 在「全部记录」的操作菜单或题目详情中编辑已有记录。
 
-### 管理标签
+同题号的新记录复用已有题目。题名、难度和标签属于题目，编辑这些字段会影响该题目的所有记录。删除最后一条记录时，题目及其标签关联也会删除，确认框会说明这一点。
 
-1. 进入「标签管理」页面
-2. 创建算法标签（如：动态规划、图论、数据结构等）
-3. 在题目详情中为题目添加标签
+### 标签管理
 
-### 数据备份
+在「标签管理」中创建、重命名和删除标签，查看各标签关联的题目数。在新建或编辑记录的表单中为题目选择标签。删除标签会移除它与题目的关联，不会删除题目或记录。
 
-1. 进入「备份恢复」页面
-2. 点击「导出数据」下载 JSON 备份文件
-3. 需要恢复时，选择备份文件并点击「导入数据」
+### 备份与恢复
 
-## 贡献指南
+1. 进入「备份恢复」，点击「导出 JSON」保存全部题目、记录、代码、笔记和标签。
+2. 恢复时点击「选择文件导入」。文件先经过结构、ID、关联关系和字段校验。
+3. 校验通过后点击「覆盖导入」，用备份替换当前全部记录数据。建议覆盖前先导出当前数据。
 
-欢迎提交 Issue 和 Pull Request！
+导入在事务中执行，失败时保留导入前的数据。历史重复洛谷题号会按原题目 ID 保留各自的记录与标签。备份不包含主题、侧边栏、默认语言和字号设置。
 
-1. Fork 本仓库
-2. 创建你的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交你的改动 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开一个 Pull Request
+记录按浏览器和站点来源分别存储，不会自动跨设备同步。更换浏览器、域名、协议或端口时，需要导出并重新导入；清除站点数据会删除本地记录，请定期备份。
 
-## 许可证
+## 技术栈与结构
 
-本项目采用 [GNU General Public License v3.0](LICENSE) 许可证。
+- Vite 8、React 19、TypeScript 6、React Router v6。
+- Tailwind CSS v3、Radix UI、lucide-react、Framer Motion、sonner。
+- Dexie.js、dexie-react-hooks、Zustand。
+- CodeMirror、react-markdown、remark-gfm、remark-math、rehype-katex、Recharts。
+- vite-plugin-pwa、Oxlint、Prettier；Node.js 测试运行器、fake-indexeddb、jsdom。
 
----
+```text
+src/
+  lib/          数据库操作、类型、常量、查询索引和工具函数
+  store/        持久化的界面设置
+  components/   侧边栏、代码/笔记编辑器、确认框、ui/ 基础组件
+  pages/        首页、记录列表、记录表单、题目详情、标签、备份、设置、404
+  router.tsx    支持未保存修改拦截的 data router
+  App.tsx       布局、懒加载路由、页面过渡和错误边界
+  main.tsx      React 入口
+  index.css     全局样式
+tests/         回归测试和 TypeScript 模块加载辅助代码
+public/        图标、静态托管的路由与缓存配置
+```
 
-<div align="center">
+数据库将记录元数据与代码、笔记分表存储，列表与首页只查询元数据。导出的备份仍使用包含代码和笔记的扁平格式。
 
-**如果这个项目对你有帮助，请给它一个 Star！**
+## 贡献与许可证
 
-</div>
+提交改动前运行 `pnpm test`、`pnpm lint`、`pnpm format:check` 和 `pnpm build`。仓库协作约定见 [AGENTS.md](AGENTS.md)。
+
+欢迎在 [GitHub](https://github.com/cn-physics3r/oi-recorder) 提交 Issue 和 Pull Request。本项目采用 [GPL-3.0](LICENSE) 许可证。

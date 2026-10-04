@@ -110,6 +110,14 @@ export async function upsertProblem(
   data: Omit<Problem, 'id' | 'createdAt'>,
   id?: number
 ): Promise<number> {
+  // 同一张表上的读写事务会串行执行，跨标签页的查重与写入也不会交错。
+  return db.transaction('rw', db.problems, async () => upsertProblemInTransaction(data, id))
+}
+
+async function upsertProblemInTransaction(
+  data: Omit<Problem, 'id' | 'createdAt'>,
+  id?: number
+): Promise<number> {
   const luoguId = normalizeLuoguId(data.luoguId)
   const fields = { luoguId, title: data.title, difficulty: data.difficulty }
 
@@ -151,7 +159,7 @@ export async function createTag(name: string): Promise<number> {
   const trimmed = name.trim()
   if (!trimmed) throw new Error('标签名不能为空')
   const existing = await db.tags.where('name').equals(trimmed).first()
-  if (existing) return existing.id!
+  if (existing?.id !== undefined) return existing.id
   return db.tags.put({ name: trimmed })
 }
 
@@ -204,6 +212,42 @@ export async function setProblemTags(problemId: number, tagIds: number[]): Promi
 export type AttemptDraft = Omit<Attempt, 'id' | 'createdAt'> &
   Pick<AttemptContent, 'code' | 'notes'>
 
+/** 题目信息、标签与记录内容必须一起成功或一起回滚。 */
+export async function saveRecord(
+  problem: Omit<Problem, 'id' | 'createdAt'>,
+  tagIds: number[],
+  attempt: Omit<AttemptDraft, 'problemId'>,
+  attemptId?: number
+): Promise<number> {
+  if (!isValidDateString(attempt.date)) throw new Error('请填写合法的完成日期')
+  return db.transaction(
+    'rw',
+    db.problems,
+    db.problemTags,
+    db.attempts,
+    db.attemptContents,
+    async () => {
+      let problemId: number | undefined
+      if (attemptId !== undefined) {
+        const existing = await db.attempts.get(attemptId)
+        if (!existing) throw new Error('记录不存在或已被删除')
+        if (!(await db.problems.get(existing.problemId))) {
+          throw new Error('这条记录关联的题目已不存在')
+        }
+        problemId = existing.problemId
+      }
+      problemId = await upsertProblem(problem, problemId)
+      await setProblemTags(problemId, tagIds)
+      const payload = { ...attempt, problemId }
+      if (attemptId !== undefined) {
+        await updateAttempt(attemptId, payload)
+        return attemptId
+      }
+      return createAttempt(payload)
+    }
+  )
+}
+
 export async function getAttemptsByProblemId(problemId: number): Promise<Attempt[]> {
   const arr = await db.attempts.where('problemId').equals(problemId).sortBy('date')
   arr.reverse()
@@ -221,6 +265,7 @@ export async function getAttemptContentsByProblemId(
 }
 
 export async function createAttempt(data: AttemptDraft): Promise<number> {
+  if (!isValidDateString(data.date)) throw new Error('请填写合法的完成日期')
   return db.transaction('rw', db.attempts, db.attemptContents, async () => {
     const { code, notes, ...meta } = data
     const id = await db.attempts.add({ ...meta, createdAt: new Date() })
@@ -230,6 +275,9 @@ export async function createAttempt(data: AttemptDraft): Promise<number> {
 }
 
 export async function updateAttempt(id: number, data: Partial<AttemptDraft>): Promise<void> {
+  if (data.date !== undefined && !isValidDateString(data.date)) {
+    throw new Error('请填写合法的完成日期')
+  }
   await db.transaction('rw', db.attempts, db.attemptContents, async () => {
     const { code, notes, ...meta } = data
     if (Object.keys(meta).length > 0) await db.attempts.update(id, meta)
@@ -348,15 +396,21 @@ export async function exportAll(): Promise<BackupData> {
     problems,
     tags,
     problemTags,
-    attempts: attempts.map((a) => ({
-      ...a,
-      code: (a.id === undefined ? undefined : contentMap.get(a.id)?.code) ?? '',
-      notes: (a.id === undefined ? undefined : contentMap.get(a.id)?.notes) ?? '',
-    })),
+    attempts: attempts.map((a) =>
+      Object.assign({}, a, {
+        code: (a.id === undefined ? undefined : contentMap.get(a.id)?.code) ?? '',
+        notes: (a.id === undefined ? undefined : contentMap.get(a.id)?.notes) ?? '',
+      })
+    ),
   }
 }
 
 export async function importAll(data: BackupData): Promise<void> {
+  // 即使调用方绕过文件解析，也必须在清空数据库前拒绝无法关联内容的记录。
+  data.attempts.forEach((attempt, index) => {
+    if (!Number.isInteger(attempt.id)) fail(`attempts[${index}].id 必须是整数`)
+  })
+
   await db.transaction(
     'rw',
     db.problems,
@@ -411,7 +465,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function isValidDateString(value: unknown): value is string {
+export function isValidDateString(value: unknown): value is string {
   if (typeof value !== 'string' || !DATE_PATTERN.test(value)) return false
   const [year, month, day] = value.split('-').map(Number)
   const date = new Date(Date.UTC(year, month - 1, day))
@@ -463,7 +517,6 @@ export function parseBackupFile(text: string): BackupData {
 
   const problems: Problem[] = []
   const problemIds = new Set<number>()
-  const luoguIdOwners = new Map<string, string>()
   problemRows.forEach((item, index) => {
     const path = `problems[${index}]`
     if (!isPlainObject(item)) fail(`${path} 必须是对象`)
@@ -476,13 +529,7 @@ export function parseBackupFile(text: string): BackupData {
       fail(`${path}.difficulty 必须是 1-8 之间的整数`)
     }
     const luoguId = typeof item.luoguId === 'string' ? normalizeLuoguId(item.luoguId) : undefined
-    if (luoguId) {
-      const owner = luoguIdOwners.get(luoguId)
-      if (owner !== undefined) {
-        fail(`${path}.luoguId ${luoguId} 与「${owner}」重复，无法确定归属`)
-      }
-      luoguIdOwners.set(luoguId, title)
-    }
+    // 关联关系由 problemId 决定；保留历史重复题号，避免应用自己的备份无法恢复。
     problemIds.add(id as number)
     problems.push({
       id: id as number,
@@ -540,6 +587,7 @@ export function parseBackupFile(text: string): BackupData {
     const path = `attempts[${index}]`
     if (!isPlainObject(item)) fail(`${path} 必须是对象`)
     const id = readOptionalId(item.id, `${path}.id`, attemptIds)
+    if (id === undefined) fail(`${path}.id 必须是整数`)
     const problemId = item.problemId
     if (!Number.isInteger(problemId)) fail(`${path}.problemId 必须是整数`)
     if (!problemIds.has(problemId as number)) {
