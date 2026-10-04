@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { getErrorMessage } from '@/lib/utils'
 
 interface DeleteTarget {
   id: number
@@ -38,26 +39,27 @@ function Tags() {
       await createTag(newName.trim())
       setNewName('')
       setAdding(false)
-    } catch {
-      toast.error('创建标签失败')
+    } catch (err) {
+      toast.error(`创建标签失败：${getErrorMessage(err)}`)
     }
   }
 
+  // 失败时保留编辑态，用户不用重新点开才能改
   const handleRename = async (id: number) => {
     if (!editName.trim()) return
     try {
       await updateTag(id, editName.trim())
       setEditingId(null)
-    } catch {
-      toast.error('重命名标签失败')
+    } catch (err) {
+      toast.error(`重命名失败：${getErrorMessage(err)}`)
     }
   }
 
   const handleDelete = async (id: number) => {
     try {
       await deleteTag(id)
-    } catch {
-      toast.error('删除标签失败')
+    } catch (err) {
+      toast.error(`删除标签失败：${getErrorMessage(err)}`)
     }
   }
 
@@ -78,6 +80,7 @@ function Tags() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="标签名，如 DP、图论..."
+              aria-label="新标签名"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleAdd()
                 if (e.key === 'Escape') {
@@ -136,6 +139,7 @@ function Tags() {
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         className="flex-1"
+                        aria-label={`重命名标签 ${tag.name}`}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleRename(tagId)
                           if (e.key === 'Escape') setEditingId(null)

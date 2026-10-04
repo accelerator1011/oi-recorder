@@ -14,10 +14,11 @@ const attempt = {
 
 test('新建时内容写入失败，题目、标签和记录全部回滚', async (t) => {
   const api = loadDatabase(t)
+  const tagId = await api.createTag('DP')
   api.db.attemptContents.hook('creating', () => {
     throw new Error('模拟存储失败')
   })
-  await assert.rejects(api.saveRecord(problem, [1], attempt), /模拟存储失败/)
+  await assert.rejects(api.saveRecord(problem, [tagId], attempt), /模拟存储失败/)
   assert.equal((await api.getAllProblems()).length, 0)
   assert.equal((await api.getAllProblemTags()).length, 0)
   assert.equal((await api.getAllAttempts()).length, 0)
