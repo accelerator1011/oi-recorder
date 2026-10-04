@@ -79,6 +79,17 @@ function Settings() {
         <p className="text-sm font-medium">关于</p>
         <p className="text-xs text-muted-foreground">OI Recorder — 信息竞赛做题记录工具 v1.0.0</p>
         <p className="text-xs text-muted-foreground">数据存储在浏览器 IndexedDB 中，请定期备份。</p>
+        <p className="text-xs text-muted-foreground">
+          仓库链接：
+          <a
+            href="https://github.com/accelerator1011/oi-recorder"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all text-primary underline underline-offset-4 hover:opacity-80"
+          >
+            github.com/accelerator1011/oi-recorder
+          </a>
+        </p>
       </Card>
     </div>
   )
