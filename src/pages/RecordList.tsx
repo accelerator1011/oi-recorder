@@ -11,7 +11,7 @@ import {
   getAllProblemTags,
 } from '@/lib/db'
 import { DIFFICULTY_MAP, DIFFICULTIES, STATUS_OPTIONS } from '@/lib/constants'
-import { buildProblemIndex, joinAttempts } from '@/lib/selectors'
+import { buildProblemIndex, filterAttemptViews, joinAttempts } from '@/lib/selectors'
 import type { Status } from '@/lib/types'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
@@ -52,23 +52,19 @@ function RecordList() {
     return joinAttempts(allAttempts, buildProblemIndex(allProblems, allTags, allProblemTags))
   }, [allAttempts, allProblems, allTags, allProblemTags])
 
+  const trimmedSearch = search.trim()
   const filtered = useMemo(() => {
     if (!joined) return []
-    return joined.filter((item) => {
-      if (filterDifficulty && item.problem.difficulty !== filterDifficulty) return false
-      if (filterStatus !== 'all' && item.attempt.status !== filterStatus) return false
-      if (search) {
-        const q = search.toLowerCase()
-        if (
-          !item.problem.title.toLowerCase().includes(q) &&
-          !(item.problem.luoguId ?? '').toLowerCase().includes(q) &&
-          !item.tags.some((t) => t.name.toLowerCase().includes(q))
-        )
-          return false
-      }
-      return true
+    return filterAttemptViews(joined, {
+      search: trimmedSearch,
+      difficulty: filterDifficulty,
+      status: filterStatus,
     })
-  }, [joined, filterDifficulty, filterStatus, search])
+  }, [joined, filterDifficulty, filterStatus, trimmedSearch])
+
+  // 纯空白的搜索词不算「正在筛选」，否则会误报成「没有匹配的记录」
+  const hasActiveFilter =
+    trimmedSearch !== '' || filterDifficulty !== null || filterStatus !== 'all'
 
   // 删除最后一条记录会连带删掉题目和它的标签关联，确认框必须把这点说清楚
   const deleteTarget = useMemo(() => {
@@ -157,18 +153,10 @@ function RecordList() {
 
       {filtered.length === 0 ? (
         <EmptyState
-          title={
-            search || filterDifficulty || filterStatus !== 'all'
-              ? '没有匹配的记录'
-              : '还没有做题记录'
-          }
-          description={
-            !search && !filterDifficulty && filterStatus === 'all'
-              ? '点击右上角"新建记录"开始吧'
-              : undefined
-          }
+          title={hasActiveFilter ? '没有匹配的记录' : '还没有做题记录'}
+          description={hasActiveFilter ? undefined : '点击右上角"新建记录"开始吧'}
           action={
-            !search && !filterDifficulty && filterStatus === 'all' ? (
+            !hasActiveFilter ? (
               <Link to="/records/new">
                 <Button size="sm">
                   <Plus className="mr-1.5 h-4 w-4" />
