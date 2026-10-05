@@ -71,6 +71,10 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${byte(channel(h + 1 / 3))}${byte(channel(h))}${byte(channel(h - 1 / 3))}`
 }
 
+/** 饱和度放大倍数与明度下调量。取值是调出来的效果，不是给调用方准备的旋钮。 */
+const SATURATION_FACTOR = 1.2
+const LIGHTNESS_DELTA = -0.06
+
 /**
  * 让颜色「更实一点」：在 HSL 空间里放大饱和度，同时略微压低明度。
  *
@@ -80,9 +84,9 @@ function hslToHex(h: number, s: number, l: number): string {
  *
  * 仅用于图表填充；文字/描边类配色仍走原始色值，避免影响可读性。
  */
-export function boostSaturation(hex: HexColor, saturationFactor = 1.2, lightnessDelta = -0.06) {
+export function boostSaturation(hex: HexColor) {
   const [h, s, l] = hexToHsl(hex)
-  const nextS = Math.min(1, s * saturationFactor)
-  const nextL = Math.min(1, Math.max(0, l + lightnessDelta))
+  const nextS = Math.min(1, s * SATURATION_FACTOR)
+  const nextL = Math.min(1, Math.max(0, l + LIGHTNESS_DELTA))
   return hslToHex(h, nextS, nextL)
 }
