@@ -513,6 +513,12 @@ export function isValidDateString(value: unknown): value is string {
   )
 }
 
+/**
+ * 把备份里的 createdAt 归一为 Date，解析不了就退回当前时间。
+ *
+ * 这个字段不参与排序也不展示，别处都用 date 和 id。为它拒绝整份备份
+ * 并不划算：用户宁可丢掉创建时间，也要把记录本身恢复回来。
+ */
 function toDate(value: unknown): Date {
   if (typeof value === 'string' || typeof value === 'number') {
     const date = new Date(value)
