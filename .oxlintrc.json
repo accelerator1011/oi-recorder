@@ -46,6 +46,7 @@
     "oxc/no-optional-chaining": "off",
     "eslint/no-magic-numbers": "off",
     "eslint/sort-keys": "off",
-    "eslint/id-length": "off"
+    "eslint/id-length": "off",
+    "eslint/no-underscore-dangle": "off"
   }
 }

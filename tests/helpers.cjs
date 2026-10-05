@@ -16,11 +16,10 @@ function loadSource(file, mocks = {}) {
   const module = new Module(filename)
   module.filename = filename
   // Node 的编译 API 用于执行真实源码，避免事务测试落到手写的数据库替身上。
-  // eslint-disable-next-line no-underscore-dangle
+  // 下面的 _ 开头成员是 Node 的内部 API，没有替代方案。
   module.paths = Module._nodeModulePaths(path.dirname(filename))
   const originalRequire = module.require.bind(module)
   module.require = (name) => (Object.hasOwn(mocks, name) ? mocks[name] : originalRequire(name))
-  // eslint-disable-next-line no-underscore-dangle
   module._compile(compiled, filename)
   return module.exports
 }
