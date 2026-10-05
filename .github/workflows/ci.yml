@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# 同一个 PR 的新提交会取消上一次还在跑的检查
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: 测试 / Lint / 格式 / 构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 版本与开发机一致（package.json 的 engines 要求 pnpm >= 9、Node ^24.15）
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: 回归测试
+        run: pnpm test
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: 格式检查
+        run: pnpm format:check
+
+      # pnpm build 已包含 tsc 类型检查，这里不必重复跑一遍
+      - name: 构建
+        run: pnpm build
