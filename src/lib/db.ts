@@ -369,6 +369,7 @@ export async function deleteAttempt(id: number): Promise<void> {
   )
 }
 
+/** 取单条记录的元数据。records 与 backup 测试用它断言写入/导入后的日期与归属 */
 export async function getAttempt(id: number): Promise<WithId<Attempt> | undefined> {
   return db.attempts.get(id) as Promise<WithId<Attempt> | undefined>
 }
@@ -378,7 +379,7 @@ export async function getAttemptContent(id: number): Promise<AttemptContent | un
   return db.attemptContents.get(id)
 }
 
-/** 编辑表单用：把元数据与代码/笔记拼回一个对象 */
+/** 编辑表单用：把元数据与代码/笔记拼回一个对象，一次读全，不必再单独查元数据 */
 export async function getAttemptDraft(id: number): Promise<AttemptDraft | undefined> {
   const [attempt, content] = await Promise.all([db.attempts.get(id), db.attemptContents.get(id)])
   if (!attempt) return undefined

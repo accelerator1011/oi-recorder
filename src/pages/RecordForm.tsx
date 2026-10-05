@@ -6,7 +6,6 @@ import {
   saveRecord,
   isValidDateString,
   getTagsForProblem,
-  getAttempt,
   getAttemptDraft,
   getProblem,
   getProblemByLuoguId,
@@ -86,15 +85,17 @@ function RecordForm() {
     let cancelled = false
     ;(async () => {
       try {
-        const attempt = await getAttempt(numericId)
+        // getAttemptDraft 已经带回全部元数据（problemId/date/status/language/耗时）
+        // 与代码、笔记，不必再单独查一次 attempts 行
+        const draft = await getAttemptDraft(numericId)
         if (cancelled) return
-        if (!attempt) {
+        if (!draft) {
           toast.error('记录不存在或已被删除')
           navigate('/records', { replace: true })
           return
         }
 
-        const problem = await getProblem(attempt.problemId)
+        const problem = await getProblem(draft.problemId)
         if (cancelled) return
         if (!problem) {
           // 旧实现这里静默 return，表单会停在空白状态，再点保存就凭空新建一道题
@@ -103,22 +104,17 @@ function RecordForm() {
           return
         }
 
-        const problemId = problem.id
-        const [tags, draft] = await Promise.all([
-          getTagsForProblem(problemId),
-          getAttemptDraft(numericId),
-        ])
+        const tags = await getTagsForProblem(problem.id)
         if (cancelled) return
 
-        if (!draft) throw new Error('记录不存在或已被删除')
         setLuoguId(problem.luoguId ?? '')
         setTitle(problem.title)
         setDifficulty(problem.difficulty)
         setSelectedTagIds(tags.map((t) => t.id))
-        setDate(attempt.date)
-        setTimeSpent(String(attempt.timeSpentMin))
-        setStatus(attempt.status)
-        setLanguage(attempt.language)
+        setDate(draft.date)
+        setTimeSpent(String(draft.timeSpentMin))
+        setStatus(draft.status)
+        setLanguage(draft.language)
         setCode(draft.code)
         setNotes(draft.notes)
         setDirtyFlag(false)
