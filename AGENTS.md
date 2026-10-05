@@ -77,5 +77,5 @@ public/        图标与静态托管的 SPA / 缓存配置
 `tests/helpers.cjs` 负责把真实的 TypeScript 模块转译后交给 Node.js 测试运行器。测试是直接 import 生产模块的，所以 `db.ts` 里有几个导出在应用代码里找不到调用方，实际却是测试的种数据与断言入口：`upsertProblem` 被 tags/records/backup 用来造题目并验证并发题号写入，`getAttemptContent` 被 backup 用来断言导入后代码与笔记没丢。判断「零调用方」时 grep 必须覆盖 `tests/`，否则会把承重导出当死代码删掉。
 数据库测试让 Dexie 跑在互相隔离的 fake-indexeddb 库上；表单测试用 React + jsdom 并 mock 掉依赖。
 测试绝不能读或清空用户浏览器里的数据库。改动回滚、并发写入、备份内容保留、表单错误态这几处行为时，必须同步补测试。
-`parseBackupFile` 守着唯一会清空所有表的入口，校验逻辑每改一处，它的每个拒绝分支都要有对应测试。`selectors.ts` 里的统计规则由 `tests/stats.test.cjs` 覆盖，标签命名与关联规则由 `tests/tags.test.cjs` 覆盖。
+`parseBackupFile` 守着唯一会清空所有表的入口，校验逻辑每改一处，它的每个拒绝分支都要有对应测试。`selectors.ts` 里的统计规则由 `tests/stats.test.cjs` 覆盖，标签命名与关联规则由 `tests/tags.test.cjs` 覆盖。`utils.ts` 的纯函数由 `tests/utils.test.cjs` 覆盖：日期拼接、耗时文案、异常文案，以及 `boostSaturation` 的 HSL 行为。
 `tests/migration.test.cjs` 会真的建出 v1 与 v2 的旧库再执行升级：code/notes 迁移只会在用户已有数据上跑，导入测试覆盖不到。
