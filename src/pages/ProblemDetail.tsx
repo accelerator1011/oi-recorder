@@ -80,8 +80,11 @@ function ProblemDetail() {
     }
   }, [location.key, navigate])
 
+  // 链接本身是合法的，只是它指向的题目已被删除——别把用户引去检查链接
   if (problem === null) {
-    return <NotFoundView />
+    return (
+      <NotFoundView title="题目不存在" description="这道题可能已被删除，或链接中的题号有误。" />
+    )
   }
 
   if (

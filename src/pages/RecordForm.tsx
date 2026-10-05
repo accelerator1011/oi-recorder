@@ -281,17 +281,13 @@ function RecordForm() {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label id="difficulty-label">难度</Label>
-          <DifficultyPicker
-            labelId="difficulty-label"
-            value={difficulty}
-            onChange={(d) => {
-              touch()
-              setDifficulty(d)
-            }}
-          />
-        </div>
+        <DifficultyPicker
+          value={difficulty}
+          onChange={(d) => {
+            touch()
+            setDifficulty(d)
+          }}
+        />
 
         <div className="space-y-2">
           <Label>算法标签</Label>

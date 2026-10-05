@@ -18,7 +18,7 @@ import {
 } from 'recharts'
 import { DIFFICULTIES, getDifficultyStyle } from '@/lib/constants'
 import { buildRecentViews, buildWeeklyTrend, computeProblemStats } from '@/lib/selectors'
-import { useAttemptViews } from '@/hooks/useAttemptViews'
+import { useAttemptData } from '@/hooks/useAttemptData'
 import { useStore } from '@/store/useStore'
 import { boostSaturation, formatMinutes } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -77,7 +77,7 @@ function ChartEmpty({ children }: { children: ReactNode }) {
 
 function Dashboard() {
   const darkMode = useStore((s) => s.darkMode)
-  const data = useAttemptViews()
+  const data = useAttemptData()
 
   // 配色只取决于主题，与统计数据无关：单独算，切换明暗不必重跑统计
   const difficultyColors = useMemo(
@@ -150,7 +150,7 @@ function Dashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={BookOpen} label="题目数" value={stats.totalProblems} />
         <StatCard icon={CheckCircle} label="已通过" value={stats.acProblemCount} />
-        <StatCard icon={Clock} label="总耗时" value={`${stats.totalTimeMin} min`} />
+        <StatCard icon={Clock} label="总耗时" value={formatMinutes(stats.totalTimeMin)} />
         <StatCard icon={ListTodo} label="进行中" value={stats.todoCount} />
       </div>
 

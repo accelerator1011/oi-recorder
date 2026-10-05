@@ -96,7 +96,7 @@ pnpm dev
 src/
   lib/          数据库操作、类型、常量、查询索引和工具函数
   store/        持久化的界面设置
-  hooks/        首页与列表页共用的记录视图查询
+  hooks/        首页与列表页共用的记录数据查询与索引
   components/   侧边栏、代码/笔记编辑器、难度选择器、Markdown 渲染、404 视图、ui/ 基础组件
   pages/        首页、记录列表、记录表单、题目详情、标签、备份、设置
   router.tsx    支持未保存修改拦截的 data router
