@@ -33,16 +33,6 @@ export interface DifficultyStyle {
 /** 按当前主题取难度配色；底色与描边由文字色派生，避免三处各写一遍 */
 export function getDifficultyStyle(difficulty: Difficulty, darkMode: boolean): DifficultyStyle {
   const info = DIFFICULTY_MAP[difficulty]
-  if (!info) {
-    // 兜底：历史数据里若存在越界难度，也不该让整个页面崩掉
-    const color = '#888780'
-    return {
-      label: `难度 ${String(difficulty)}`,
-      color,
-      background: `${color}20`,
-      border: `${color}40`,
-    }
-  }
   const color = darkMode ? info.darkColor : info.color
   return {
     label: info.label,
