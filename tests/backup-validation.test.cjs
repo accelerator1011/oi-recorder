@@ -64,7 +64,10 @@ test('文件结构不合法时直接拒绝', (t) => {
 
   assertRejected(api, (d) => d.problems.push('x'), /problems\[1\] 必须是对象/)
   assertRejected(api, (d) => d.attempts.push(7), /attempts\[1\] 必须是对象/)
+  assertRejected(api, (d) => d.tags.push('x'), /tags\[1\] 必须是对象/)
+  assertRejected(api, (d) => d.problemTags.push('x'), /problemTags\[1\] 必须是对象/)
   assertRejected(api, (d) => delete d.problems[0].id, /problems\[0\]\.id 必须是整数/)
+  assertRejected(api, (d) => delete d.tags[0].id, /tags\[0\]\.id 必须是整数/)
 })
 
 test('题目字段的取值与唯一性被逐项校验', (t) => {
@@ -109,6 +112,13 @@ test('标签与题目标签关联的悬空引用会被挡下', (t) => {
     /与前面的记录重复/
   )
   assertRejected(api, (d) => (d.problemTags[0].problemId = '1'), /problemId \/ tagId 必须是整数/)
+  // problemTags 的 id 是可选的，但给了就必须是非重复整数
+  assertRejected(api, (d) => (d.problemTags[0].id = '1'), /problemTags\[0\]\.id 必须是整数/)
+  assertRejected(
+    api,
+    (d) => d.problemTags.push({ id: 1, problemId: 1, tagId: 1 }),
+    /problemTags\[1\]\.id 与前面的记录 id 重复/
+  )
 })
 
 test('记录字段的日期、状态、语言、耗时与内容类型都会被校验', (t) => {
@@ -160,6 +170,7 @@ test('记录字段的日期、状态、语言、耗时与内容类型都会被�
       /timeSpentMin 必须是非负数字/
     )
   }
+  assertRejected(api, (d) => (d.attempts[0].problemId = '1'), /attempts\[0\]\.problemId 必须是整数/)
   assertRejected(api, (d) => (d.attempts[0].code = null), /code 必须是字符串/)
   assertRejected(api, (d) => delete d.attempts[0].notes, /notes 必须是字符串/)
 })
