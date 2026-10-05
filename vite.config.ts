@@ -14,19 +14,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
+        // 纯前端应用，没有后端接口：所有页面路由都要回退到 index.html，
+        // 由 react-router 决定渲染哪个页面。原先这里还有一条 /api/ 的
+        // denylist 和一条 Google Fonts 的 runtimeCaching，但本应用从不请求
+        // 外部域名、也不存在 /api/ 路径，两条规则都不会命中，已随之删除。
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
       },
       manifest: {
         name: 'OI Recorder',
