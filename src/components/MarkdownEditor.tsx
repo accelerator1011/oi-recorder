@@ -1,10 +1,7 @@
 import { useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
 import { Eye, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import MarkdownView from '@/components/MarkdownView'
 
 interface Props {
   value: string
@@ -52,11 +49,7 @@ function MarkdownEditor({ value, onChange }: Props) {
       </div>
       <div className="min-h-[200px]">
         {preview ? (
-          <div className="prose prose-sm max-w-none p-4 dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-              {value || '(无内容)'}
-            </ReactMarkdown>
-          </div>
+          <MarkdownView content={value || '(无内容)'} className="p-4" />
         ) : (
           <textarea
             value={value}

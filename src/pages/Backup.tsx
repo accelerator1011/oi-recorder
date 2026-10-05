@@ -6,6 +6,7 @@ import { exportAll, getDataCounts, importAll, parseBackupFile } from '@/lib/db'
 import type { BackupData } from '@/lib/db'
 import { getErrorMessage } from '@/lib/utils'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import PageHeader from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -61,7 +62,7 @@ function Backup() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">备份恢复</h1>
+      <PageHeader title="备份恢复" />
 
       <Card>
         <CardHeader>

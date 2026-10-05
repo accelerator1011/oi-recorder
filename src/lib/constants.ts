@@ -1,9 +1,6 @@
-import type { Difficulty, Language, SelectableStatus, Status } from './types'
+import type { Difficulty, HexColor, Language, SelectableStatus, Status } from './types'
 
 export const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5, 6, 7, 8]
-
-/** '#RRGGBB' 形式的颜色字面量：按位解析颜色的函数（如 boostSaturation）依赖这个前提 */
-export type HexColor = `#${string}`
 
 /**
  * 每一级难度给出明暗两套颜色。
@@ -24,7 +21,7 @@ export const DIFFICULTY_MAP: Record<
   8: { label: 'NOI/NOI+/CTS', color: '#1e3a8a', darkColor: '#9fbcf2' },
 }
 
-export interface DifficultyStyle {
+interface DifficultyStyle {
   label: string
   /** 文字与描边色 */
   color: HexColor

@@ -86,7 +86,7 @@ export async function getAllProblems(): Promise<WithId<Problem>[]> {
   return db.problems.toArray() as Promise<WithId<Problem>[]>
 }
 
-export function normalizeLuoguId(value: string | undefined): string | undefined {
+function normalizeLuoguId(value: string | undefined): string | undefined {
   const trimmed = value?.trim()
   return trimmed ? trimmed : undefined
 }
@@ -254,8 +254,7 @@ export async function setProblemTags(problemId: number, tagIds: number[]): Promi
 /* ── Attempt CRUD ─────────────────────────────────────── */
 
 /** 新建/更新一条记录时的入参：元数据 + 代码 + 笔记 */
-export type AttemptDraft = Omit<Attempt, 'id' | 'createdAt'> &
-  Pick<AttemptContent, 'code' | 'notes'>
+type AttemptDraft = Omit<Attempt, 'id' | 'createdAt'> & Pick<AttemptContent, 'code' | 'notes'>
 
 /** 题目信息、标签与记录内容必须一起成功或一起回滚。 */
 export async function saveRecord(
@@ -400,7 +399,7 @@ export async function getAllAttempts(): Promise<WithId<Attempt>[]> {
 
 /* ── Counts ───────────────────────────────────────────── */
 
-export interface DataCounts {
+interface DataCounts {
   problems: number
   tags: number
   attempts: number
@@ -422,7 +421,7 @@ export async function getDataCounts(): Promise<DataCounts> {
  * 保持这个格式是为了向后兼容：旧版本导出的备份能直接导入，
  * 新版本导出的备份也能被旧版本读回。
  */
-export type BackupAttempt = Attempt & Pick<AttemptContent, 'code' | 'notes'>
+type BackupAttempt = Attempt & Pick<AttemptContent, 'code' | 'notes'>
 
 export interface BackupData {
   version: number

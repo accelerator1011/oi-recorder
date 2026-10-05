@@ -1,18 +1,13 @@
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { Plus, Search, MoreHorizontal, Pencil, Trash2, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
-import {
-  deleteAttempt,
-  getAllAttempts,
-  getAllProblems,
-  getAllTags,
-  getAllProblemTags,
-} from '@/lib/db'
+import { deleteAttempt } from '@/lib/db'
 import { DIFFICULTY_MAP, DIFFICULTIES, STATUS_OPTIONS } from '@/lib/constants'
-import { buildProblemIndex, filterAttemptViews, joinAttempts } from '@/lib/selectors'
+import { filterAttemptViews, isOnlyAttemptOfProblem } from '@/lib/selectors'
+import { useAttemptViews } from '@/hooks/useAttemptViews'
 import type { Status } from '@/lib/types'
+import { formatMinutes } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
 import { Input } from '@/components/ui/input'
@@ -35,33 +30,26 @@ import {
 import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import LoadingState from '@/components/LoadingState'
+import PageHeader from '@/components/PageHeader'
 
 function RecordList() {
   const navigate = useNavigate()
-  const allAttempts = useLiveQuery(() => getAllAttempts(), [])
-  const allProblems = useLiveQuery(() => getAllProblems(), [])
-  const allTags = useLiveQuery(() => getAllTags(), [])
-  const allProblemTags = useLiveQuery(() => getAllProblemTags(), [])
+  const data = useAttemptViews()
 
   const [search, setSearch] = useState('')
   const [filterDifficulty, setFilterDifficulty] = useState<number | null>(null)
   const [filterStatus, setFilterStatus] = useState<Status | 'all'>('all')
   const [deleteId, setDeleteId] = useState<number | null>(null)
 
-  const joined = useMemo(() => {
-    if (!allAttempts || !allProblems || !allTags || !allProblemTags) return null
-    return joinAttempts(allAttempts, buildProblemIndex(allProblems, allTags, allProblemTags))
-  }, [allAttempts, allProblems, allTags, allProblemTags])
-
   const trimmedSearch = search.trim()
   const filtered = useMemo(() => {
-    if (!joined) return []
-    return filterAttemptViews(joined, {
+    if (!data) return []
+    return filterAttemptViews(data.views, {
       search: trimmedSearch,
       difficulty: filterDifficulty,
       status: filterStatus,
     })
-  }, [joined, filterDifficulty, filterStatus, trimmedSearch])
+  }, [data, filterDifficulty, filterStatus, trimmedSearch])
 
   // 纯空白的搜索词不算「正在筛选」，否则会误报成「没有匹配的记录」
   const hasActiveFilter =
@@ -69,12 +57,14 @@ function RecordList() {
 
   // 删除最后一条记录会连带删掉题目和它的标签关联，确认框必须把这点说清楚
   const deleteTarget = useMemo(() => {
-    if (deleteId === null || !joined || !allAttempts) return null
-    const item = joined.find((view) => view.attempt.id === deleteId)
+    if (deleteId === null || !data) return null
+    const item = data.views.find((view) => view.attempt.id === deleteId)
     if (!item) return null
-    const siblingCount = allAttempts.filter((a) => a.problemId === item.problem.id).length
-    return { title: item.problem.title, isLastOfProblem: siblingCount <= 1 }
-  }, [deleteId, joined, allAttempts])
+    return {
+      title: item.problem.title,
+      isLastOfProblem: isOnlyAttemptOfProblem(data.attempts, item.problem.id),
+    }
+  }, [deleteId, data])
 
   const handleDelete = async (attemptId: number) => {
     try {
@@ -84,21 +74,23 @@ function RecordList() {
     }
   }
 
-  if (!joined) {
+  if (!data) {
     return <LoadingState />
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">全部记录</h1>
-        <Link to="/records/new">
-          <Button size="sm">
-            <Plus className="mr-1.5 h-4 w-4" />
-            新建记录
-          </Button>
-        </Link>
-      </div>
+      <PageHeader
+        title="全部记录"
+        actions={
+          <Link to="/records/new">
+            <Button size="sm">
+              <Plus className="mr-1.5 h-4 w-4" />
+              新建记录
+            </Button>
+          </Link>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[200px] max-w-xs flex-1">
@@ -196,7 +188,7 @@ function RecordList() {
 
                   <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
                     <span>{attempt.date}</span>
-                    <span>{attempt.timeSpentMin} min</span>
+                    <span>{formatMinutes(attempt.timeSpentMin)}</span>
                     <span>{attempt.language}</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

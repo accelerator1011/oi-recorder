@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { HexColor } from './constants'
+import type { HexColor } from './types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -16,6 +16,11 @@ export function toLocalDateString(d: Date): string {
 /** 从未知类型的异常里取出可展示的文案 */
 export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : '未知错误'
+}
+
+/** 耗时的展示文案。列表、详情、首页三处共用，避免各自拼出 "30min" / "30 min" 两种写法 */
+export function formatMinutes(minutes: number): string {
+  return `${String(minutes)} min`
 }
 
 /** '#RRGGBB' → [h, s, l]，三个分量均为 0..1 */

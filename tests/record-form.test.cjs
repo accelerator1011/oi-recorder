@@ -52,6 +52,7 @@ test('编辑页加载失败时没有可提交表单，重试成功后才展示�
     'TagSelector',
     'ConfirmDialog',
     'LoadingState',
+    'DifficultyPicker',
   ]) {
     mocks[`@/components/${name}`] = empty
   }

@@ -17,7 +17,7 @@ const ProblemDetail = lazy(() => import('@/pages/ProblemDetail'))
 const Tags = lazy(() => import('@/pages/Tags'))
 const Backup = lazy(() => import('@/pages/Backup'))
 const Settings = lazy(() => import('@/pages/Settings'))
-const NotFound = lazy(() => import('@/pages/NotFound'))
+const NotFoundView = lazy(() => import('@/components/NotFoundView'))
 
 function App() {
   const sidebarOpen = useStore((s) => s.sidebarOpen)
@@ -118,7 +118,7 @@ function App() {
                       path="*"
                       element={
                         <PageTransition>
-                          <NotFound />
+                          <NotFoundView />
                         </PageTransition>
                       }
                     />

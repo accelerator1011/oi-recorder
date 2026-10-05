@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card } from '@/components/ui/card'
+import PageHeader from '@/components/PageHeader'
 
 function Settings() {
   const darkMode = useStore((s) => s.darkMode)
@@ -21,7 +22,7 @@ function Settings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">设置</h1>
+      <PageHeader title="设置" />
 
       <Card>
         <div className="divide-y divide-border">

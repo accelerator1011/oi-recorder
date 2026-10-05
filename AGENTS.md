@@ -37,8 +37,10 @@ Lint 必须没有错误也没有警告；发现问题就修，而不是关掉项
 src/
   lib/          types.ts、constants.ts、db.ts、selectors.ts、utils.ts
   store/        useStore.ts（主题、侧边栏、默认语言与代码字号）
-  components/   Sidebar、CodeEditor、MarkdownEditor、ConfirmDialog、LoadingState、ui/ 原语组件
-  pages/        Dashboard、RecordList、RecordForm、ProblemDetail、Tags、Backup、Settings、NotFound
+  hooks/        useAttemptViews.ts（首页与列表页共用的查询与索引）
+  components/   Sidebar、CodeEditor、MarkdownEditor、MarkdownView、DifficultyPicker、
+                ConfirmDialog、LoadingState、NotFoundView、ui/ 原语组件
+  pages/        Dashboard、RecordList、RecordForm、ProblemDetail、Tags、Backup、Settings
   router.tsx    useBlocker 所依赖的数据路由
   App.tsx       布局、懒加载页面路由、转场动画与错误边界
   main.tsx      React 入口
@@ -59,7 +61,9 @@ public/        图标与静态托管的 SPA / 缓存配置
 - `tags` 在 `name` 上有唯一索引，所以 `createTag` 与 `updateTag` 要先自行校验，抛出用户能看懂的提示，而不是让底层的 Dexie `ConstraintError` 漏到界面上。把标签改成它自己的当前名字按无操作处理，不算重名。
 - `setProblemTags` 必须拒绝标签行已经不存在的 id：表单里只存着 id，标签可能已在另一个标签页被删掉。因此 `saveRecord` 的事务作用域必须包含 `db.tags`——Dexie 不允许嵌套事务访问父事务未声明的表。
 - 通过题数按题目去重，且统一归到该题首次 AC 的那天。有记录但还没有 AC 的题目算进行中。难度分布、算法分布与七日趋势都只统计通过题。
-- 统计口径要留在 `selectors.ts` 里做成纯函数（`computeProblemStats`、`buildWeeklyTrend`、`buildRecentViews`、`filterAttemptViews`），不要写进组件的 `useMemo` 里，这样才可测试。`today` 由调用方传入而不是函数内部读时钟；构建视图数据时不要改动查询结果。
+- 统计口径要留在 `selectors.ts` 里做成纯函数（`computeProblemStats`、`buildWeeklyTrend`、`buildRecentViews`、`filterAttemptViews`、`isOnlyAttemptOfProblem`），不要写进组件的 `useMemo` 里，这样才可测试。`today` 由调用方传入而不是函数内部读时钟；构建视图数据时不要改动查询结果。
+- 首页与列表页要同一份「记录 + 题目 + 标签」关联数据时，走 `hooks/useAttemptViews.ts`，不要在页面里各写一遍四条 `useLiveQuery` 与建索引。任一查询未就绪时它返回 `null`，由调用方渲染加载态。
+- 页面之间不要横向 import。404 视图住在 `components/NotFoundView.tsx`，供路由的 `*` 分支与「题目已被删除」的详情页共用。
 - 题目行已经不存在的记录属于孤立记录：所有题目级统计都要排除它，否则「已通过」卡片会和图表对不上。记录数与总耗时仍然照算。
 - 搜索词先 trim 再过滤，纯空白输入表示「不筛选」，而不是把列表过滤成空。
 - 保留对应用内跳转与刷新/关闭页面的未保存修改拦截。编辑页加载失败时必须显示错误与重试入口，且不能暴露一个可提交的默认表单。

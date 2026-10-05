@@ -1,6 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { BookOpen, CheckCircle, Clock, ListTodo } from 'lucide-react'
 import {
   PieChart,
@@ -17,22 +16,18 @@ import {
   LineChart,
   Line,
 } from 'recharts'
-import { getAllAttempts, getAllProblems, getAllTags, getAllProblemTags } from '@/lib/db'
 import { DIFFICULTIES, getDifficultyStyle } from '@/lib/constants'
-import {
-  buildProblemIndex,
-  buildRecentViews,
-  buildWeeklyTrend,
-  computeProblemStats,
-} from '@/lib/selectors'
+import { buildRecentViews, buildWeeklyTrend, computeProblemStats } from '@/lib/selectors'
+import { useAttemptViews } from '@/hooks/useAttemptViews'
 import { useStore } from '@/store/useStore'
-import { boostSaturation } from '@/lib/utils'
+import { boostSaturation, formatMinutes } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import EmptyState from '@/components/EmptyState'
 import LoadingState from '@/components/LoadingState'
+import PageHeader from '@/components/PageHeader'
 
 const CHART_CONFIG = {
   grid: { strokeDasharray: '3 3', stroke: 'hsl(var(--border))' },
@@ -82,27 +77,32 @@ function ChartEmpty({ children }: { children: ReactNode }) {
 
 function Dashboard() {
   const darkMode = useStore((s) => s.darkMode)
-  const attempts = useLiveQuery(() => getAllAttempts(), [])
-  const problems = useLiveQuery(() => getAllProblems(), [])
-  const allTags = useLiveQuery(() => getAllTags(), [])
-  const allProblemTags = useLiveQuery(() => getAllProblemTags(), [])
+  const data = useAttemptViews()
+
+  // 配色只取决于主题，与统计数据无关：单独算，切换明暗不必重跑统计
+  const difficultyColors = useMemo(
+    () =>
+      DIFFICULTIES.map((difficulty) => {
+        // 图表填充色比徽章色更「实」一档：徽章需要浅色文字保证可读性，
+        // 而扇形只需要跟深色背景拉开层次，粉彩会显得发灰。
+        const style = getDifficultyStyle(difficulty, darkMode)
+        return { difficulty, name: style.label, color: boostSaturation(style.color) }
+      }),
+    [darkMode]
+  )
 
   const stats = useMemo(() => {
-    if (!attempts || !problems || !allTags || !allProblemTags) return null
-
-    const index = buildProblemIndex(problems, allTags, allProblemTags)
+    if (!data) return null
+    const { index, attempts } = data
     const summary = computeProblemStats(attempts, index)
 
-    const byDifficulty = DIFFICULTIES.map((d) => {
-      const style = getDifficultyStyle(d, darkMode)
-      // 图表填充色比徽章色更「实」一档：徽章需要浅色文字保证可读性，
-      // 而扇形只需要跟深色背景拉开层次，粉彩会显得发灰。
-      return {
-        name: style.label,
-        value: summary.acByDifficulty.get(d) ?? 0,
-        color: boostSaturation(style.color),
-      }
-    })
+    const byDifficulty = difficultyColors
+      .map(({ difficulty, name, color }) => ({
+        name,
+        color,
+        value: summary.acByDifficulty.get(difficulty) ?? 0,
+      }))
+      .filter((entry) => entry.value > 0)
 
     const byTag = [...summary.acByTagName]
       .map(([name, count]) => ({ name, count }))
@@ -119,7 +119,7 @@ function Dashboard() {
       })),
       recent: buildRecentViews(attempts, index),
     }
-  }, [attempts, problems, allTags, allProblemTags, darkMode])
+  }, [data, difficultyColors])
 
   if (!stats) {
     return <LoadingState />
@@ -128,7 +128,7 @@ function Dashboard() {
   if (stats.totalAttempts === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight">首页</h1>
+        <PageHeader title="首页" />
         <EmptyState
           icon={<BookOpen className="h-12 w-12" />}
           title="还没有做题记录"
@@ -145,7 +145,7 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold tracking-tight">首页</h1>
+      <PageHeader title="首页" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={BookOpen} label="题目数" value={stats.totalProblems} />
@@ -160,34 +160,30 @@ function Dashboard() {
             <CardTitle className="text-sm font-medium">难度分布</CardTitle>
           </CardHeader>
           <CardContent>
-            {(() => {
-              const diffData = stats.byDifficulty.filter((d) => d.value > 0)
-              if (diffData.length === 0) {
-                return <ChartEmpty>暂无通过记录</ChartEmpty>
-              }
-              return (
-                <ResponsiveContainer width="100%" height={240}>
-                  <PieChart>
-                    <Pie
-                      data={diffData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={90}
-                      paddingAngle={2}
-                      dataKey="value"
-                      nameKey="name"
-                      stroke="none"
-                    >
-                      {diffData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={ChartTooltip} isAnimationActive={false} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )
-            })()}
+            {stats.byDifficulty.length === 0 ? (
+              <ChartEmpty>暂无通过记录</ChartEmpty>
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={stats.byDifficulty}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    dataKey="value"
+                    nameKey="name"
+                    stroke="none"
+                  >
+                    {stats.byDifficulty.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={ChartTooltip} isAnimationActive={false} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -289,7 +285,9 @@ function Dashboard() {
                 </span>
               )}
               <StatusBadge status={attempt.status} size="sm" />
-              <span className="text-xs text-muted-foreground">{attempt.timeSpentMin}min</span>
+              <span className="text-xs text-muted-foreground">
+                {formatMinutes(attempt.timeSpentMin)}
+              </span>
             </Link>
           ))}
         </CardContent>

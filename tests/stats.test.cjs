@@ -8,6 +8,7 @@ const {
   buildWeeklyTrend,
   computeProblemStats,
   filterAttemptViews,
+  isOnlyAttemptOfProblem,
   joinAttempts,
 } = loadSource('src/lib/selectors.ts', { './utils': loadSource('src/lib/utils.ts') })
 
@@ -216,4 +217,17 @@ test('筛选命中题名、题号与标签，忽略大小写', () => {
   assert.equal(filterAttemptViews(views, { status: 'all' }).length, 2)
   // 条件叠加必须同时满足
   assert.equal(filterAttemptViews(views, { difficulty: 3, status: 'WA' }).length, 0)
+})
+
+test('删掉某题最后一条记录会连带删题，确认框据此改口', () => {
+  const attempts = [attempt(1, 1, '2026-10-01'), attempt(2, 2, '2026-10-01')]
+
+  // 题目 1 只剩一条：删掉它题目本身也会没
+  assert.equal(isOnlyAttemptOfProblem(attempts, 1), true)
+  assert.equal(isOnlyAttemptOfProblem(attempts, 2), true)
+  assert.equal(isOnlyAttemptOfProblem(attempts, 99), true)
+
+  // 同一题有两条时，删一条不牵连题目
+  const more = [...attempts, attempt(3, 1, '2026-10-02')]
+  assert.equal(isOnlyAttemptOfProblem(more, 1), false)
 })

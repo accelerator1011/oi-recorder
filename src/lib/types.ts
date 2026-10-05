@@ -12,6 +12,12 @@ export type Status = SelectableStatus | '进行中'
 export type Language = 'C++' | 'C' | 'Python' | 'Java' | 'Pascal'
 
 /**
+ * '#RRGGBB' 形式的颜色字面量。按位解析颜色的函数（boostSaturation）
+ * 依赖这个前提：解析失败即视为常量表被改坏。
+ */
+export type HexColor = `#${string}`
+
+/**
  * 从数据库读出的行必然带自增主键。
  *
  * 下面几个接口上的 `id?` 只是插入路径的需要（新行还没有 id），
