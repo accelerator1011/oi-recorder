@@ -4,6 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 export default defineConfig({
+  // 唯一超过 500kB 的是 CodeEditor chunk（CodeMirror，压缩前约 573kB）。
+  // 它已经按需加载：只有题目详情里真正展开某条记录才会下载，其余页面不碰。
+  // 这是 CodeMirror 本身的体积下限，继续拆包没有意义，所以把阈值设成能容纳
+  // 这一个已知 chunk 的值，避免每次构建都留下一条要人去解释的告警。
+  build: {
+    chunkSizeWarningLimit: 700,
+  },
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
