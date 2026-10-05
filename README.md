@@ -111,6 +111,6 @@ public/        图标、静态托管的路由与缓存配置
 
 ## 贡献与许可证
 
-提交改动前运行 `pnpm test`、`pnpm lint`、`pnpm format:check` 和 `pnpm build`。仓库协作约定见 [AGENTS.md](AGENTS.md)。
+提交改动前运行 `pnpm test`、`pnpm lint`、`pnpm format:check` 和 `pnpm build`。这四道门禁与 CI 工作流（`.github/workflows/ci.yml`）完全一致，master 的每次推送与 PR 都会自动跑一遍。仓库协作约定见 [AGENTS.md](AGENTS.md)。
 
 欢迎在 [GitHub](https://github.com/accelerator1011/oi-recorder) 提交 Issue 和 Pull Request。本项目采用 [GPL-3.0](LICENSE) 许可证。
