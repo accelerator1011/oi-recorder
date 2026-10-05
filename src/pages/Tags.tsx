@@ -2,13 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
-import {
-  createTag,
-  updateTag,
-  deleteTag,
-  getTagUsageCounts,
-  getAllTags as getAllTagsOrdered,
-} from '@/lib/db'
+import { createTag, updateTag, deleteTag, getTagUsageCounts, getAllTags } from '@/lib/db'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -25,7 +19,7 @@ interface DeleteTarget {
 }
 
 function Tags() {
-  const allTags = useLiveQuery(() => getAllTagsOrdered(), [])
+  const allTags = useLiveQuery(() => getAllTags(), [])
   const usageCounts = useLiveQuery(() => getTagUsageCounts(), [])
 
   const [adding, setAdding] = useState(false)
