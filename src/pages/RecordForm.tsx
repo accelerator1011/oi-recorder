@@ -18,6 +18,7 @@ import CodeEditor from '@/components/CodeEditor'
 import MarkdownEditor from '@/components/MarkdownEditor'
 import TagSelector from '@/components/TagSelector'
 import PageHeader from '@/components/PageHeader'
+import LoadingState from '@/components/LoadingState'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -213,11 +214,7 @@ function RecordForm() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <p className="text-sm text-muted-foreground">加载中...</p>
-      </div>
-    )
+    return <LoadingState />
   }
 
   if (loadError) {

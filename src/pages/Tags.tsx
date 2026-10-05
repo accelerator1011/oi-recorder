@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import LoadingState from '@/components/LoadingState'
 import { getErrorMessage } from '@/lib/utils'
 
 interface DeleteTarget {
@@ -112,9 +113,7 @@ function Tags() {
       )}
 
       {allTags === undefined ? (
-        <div className="flex items-center justify-center py-24">
-          <p className="text-sm text-muted-foreground">加载中...</p>
-        </div>
+        <LoadingState />
       ) : allTags.length === 0 ? (
         <EmptyState
           title="暂无标签"

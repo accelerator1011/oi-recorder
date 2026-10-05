@@ -118,6 +118,10 @@ async function assertLuoguIdFree(
   }
 }
 
+/**
+ * 按主键或题号写入题目。测试用它种数据，也用于并发题号写入的断言，
+ * 所以保持对外导出。
+ */
 export async function upsertProblem(
   data: Omit<Problem, 'id' | 'createdAt'>,
   id?: number
@@ -370,6 +374,7 @@ export async function getAttempt(id: number): Promise<WithId<Attempt> | undefine
   return db.attempts.get(id) as Promise<WithId<Attempt> | undefined>
 }
 
+/** 取单条记录的内容。备份测试用它断言导入后代码与笔记没丢 */
 export async function getAttemptContent(id: number): Promise<AttemptContent | undefined> {
   return db.attemptContents.get(id)
 }

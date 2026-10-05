@@ -7,12 +7,12 @@ import { toLocalDateString } from './utils'
  * 入参来自 db.ts 的读取函数，每行都带主键，所以这里直接建 Map 即可，
  * 不需要（也不应该）再逐行判断 id 存不存在。
  */
-export function indexById<T extends { id: number }>(rows: T[]): Map<number, T> {
+function indexById<T extends { id: number }>(rows: T[]): Map<number, T> {
   return new Map(rows.map((row) => [row.id, row]))
 }
 
 /** 按 problemId 归组题目-标签关联行 */
-export function groupProblemTags(rows: ProblemTag[]): Map<number, ProblemTag[]> {
+function groupProblemTags(rows: ProblemTag[]): Map<number, ProblemTag[]> {
   const map = new Map<number, ProblemTag[]>()
   for (const row of rows) {
     const list = map.get(row.problemId)
@@ -31,7 +31,6 @@ export function groupProblemTags(rows: ProblemTag[]): Map<number, ProblemTag[]> 
 export interface ProblemIndex {
   problemMap: Map<number, WithId<Problem>>
   tagMap: Map<number, WithId<Tag>>
-  problemTagRows: Map<number, ProblemTag[]>
   /** problemId → 该题目的标签列表 */
   tagsByProblemId: Map<number, WithId<Tag>[]>
 }
@@ -56,7 +55,7 @@ export function buildProblemIndex(
     )
   }
 
-  return { problemMap, tagMap, problemTagRows, tagsByProblemId }
+  return { problemMap, tagMap, tagsByProblemId }
 }
 
 export function tagsOf(index: ProblemIndex, problemId: number): WithId<Tag>[] {
