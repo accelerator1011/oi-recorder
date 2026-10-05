@@ -5,7 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { createTag, getAllTags } from '@/lib/db'
 import type { Tag, WithId } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn, getErrorMessage } from '@/lib/utils'
 
 interface Props {
   selectedIds: number[]
@@ -32,8 +32,14 @@ function TagSelector({ selectedIds, onChange }: Props) {
     [allTags, selectedIds, input]
   )
 
+  // 所有「能不能创建」的判断都基于 trim 后的值：纯空白等价于没输入，
+  // 不能渲染出一个「创建 ""」的按钮让用户点了个寂寞。
+  const trimmed = input.trim()
+  const canCreate =
+    trimmed !== '' && !allTags.some((t) => t.name.toLowerCase() === trimmed.toLowerCase())
+
   // 下拉是否真的可见，aria-expanded 要反映这个而不是 showDropdown
-  const dropdownVisible = showDropdown && Boolean(input || availableTags.length > 0)
+  const dropdownVisible = showDropdown && Boolean(trimmed || availableTags.length > 0)
 
   const handleToggle = useCallback(
     (tag: WithId<Tag>) => {
@@ -47,17 +53,18 @@ function TagSelector({ selectedIds, onChange }: Props) {
   )
 
   const handleCreateAndAdd = async () => {
-    const trimmed = input.trim()
-    if (!trimmed) return
     try {
+      // 调用方（按钮与回车）已保证 trimmed 非空；真传空进来 createTag 会给出可读报错
       const id = await createTag(trimmed)
+      // createTag 是 get-or-create：回车时输入的名字可能命中一个已选中的标签，
+      // 这时拿到的就是它自己的 id，不能重复塞进 selectedIds
       if (!selectedIds.includes(id)) {
         onChange([...selectedIds, id])
       }
       setInput('')
       setShowDropdown(false)
-    } catch {
-      toast.error('创建标签失败')
+    } catch (err) {
+      toast.error(`创建标签失败：${getErrorMessage(err)}`)
     }
   }
 
@@ -108,10 +115,10 @@ function TagSelector({ selectedIds, onChange }: Props) {
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
-              if (availableTags.length > 0 && input) {
+              if (availableTags.length > 0 && trimmed) {
                 handleToggle(availableTags[0])
                 setInput('')
-              } else if (input) {
+              } else if (trimmed) {
                 handleCreateAndAdd()
               }
             }
@@ -140,14 +147,14 @@ function TagSelector({ selectedIds, onChange }: Props) {
               {tag.name}
             </button>
           ))}
-          {input && !allTags.find((t) => t.name.toLowerCase() === input.trim().toLowerCase()) && (
+          {canCreate && (
             <button
               type="button"
               onClick={handleCreateAndAdd}
               className="flex w-full items-center gap-1 px-3 py-1.5 text-left text-sm text-primary hover:bg-accent"
             >
               <Plus className="h-3.5 w-3.5" />
-              创建 &ldquo;{input.trim()}&rdquo;
+              创建 &ldquo;{trimmed}&rdquo;
             </button>
           )}
         </div>

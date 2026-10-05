@@ -20,7 +20,6 @@ import { getErrorMessage } from '@/lib/utils'
 interface DeleteTarget {
   id: number
   name: string
-  count: number
 }
 
 function Tags() {
@@ -62,6 +61,10 @@ function Tags() {
       toast.error(`删除标签失败：${getErrorMessage(err)}`)
     }
   }
+
+  // 确认框打开期间现读用量：对话框开着的时候别的标签页可能已经改过关联，
+  // 把 count 快照进 state 只会显示一个过期的数字
+  const deleteUsage = deleteTarget ? usageCounts?.get(deleteTarget.id) : undefined
 
   return (
     <div className="space-y-6">
@@ -128,7 +131,7 @@ function Tags() {
           <div className="divide-y divide-border">
             {allTags.map((tag) => {
               const tagId = tag.id
-              const count = usageCounts?.get(tagId) ?? 0
+              const count = usageCounts?.get(tagId)
               const isEditing = editingId === tagId
               return (
                 <div key={tag.id} className="flex items-center gap-3 px-4 py-3">
@@ -165,9 +168,13 @@ function Tags() {
                   ) : (
                     <>
                       <span className="flex-1 text-sm font-medium">{tag.name}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {count} 题
-                      </Badge>
+                      {/* 用量与标签列表是两个独立查询，没回来之前宁可不显示，
+                          也别先摆一个假的「0 题」 */}
+                      {count !== undefined && (
+                        <Badge variant="secondary" className="text-xs">
+                          {count} 题
+                        </Badge>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -188,7 +195,6 @@ function Tags() {
                           setDeleteTarget({
                             id: tagId,
                             name: tag.name,
-                            count,
                           })
                         }
                         aria-label={`删除标签 ${tag.name}`}
@@ -209,8 +215,8 @@ function Tags() {
         onOpenChange={(v) => !v && setDeleteTarget(null)}
         title="删除标签"
         description={
-          deleteTarget && deleteTarget.count > 0
-            ? `标签 "${deleteTarget.name}" 被 ${deleteTarget.count} 道题使用，确定删除？`
+          deleteTarget && deleteUsage
+            ? `标签 "${deleteTarget.name}" 被 ${deleteUsage} 道题使用，确定删除？`
             : `确定删除标签 "${deleteTarget?.name ?? ''}"？`
         }
         confirmText="删除"

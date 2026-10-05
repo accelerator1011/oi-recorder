@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { HexColor } from './constants'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -17,10 +18,12 @@ export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : '未知错误'
 }
 
-/** '#RRGGBB' → [h, s, l]，三个分量均为 0..1；非法输入返回 null */
-function hexToHsl(hex: string): [number, number, number] | null {
-  const match = /^#([0-9a-f]{6})$/i.exec(hex.trim())
-  if (!match) return null
+/** '#RRGGBB' → [h, s, l]，三个分量均为 0..1 */
+function hexToHsl(hex: HexColor): [number, number, number] {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex)
+  // 唯一的色值来源是 DIFFICULTY_MAP，全是 6 位 hex 字面量。
+  // 走到这里说明常量表被改坏了，宁可当场报错，也不要静默退回原色画出一块错的填充。
+  if (!match) throw new Error(`无法解析的颜色：${hex}`)
 
   const int = parseInt(match[1], 16)
   const r = ((int >> 16) & 0xff) / 255
@@ -72,11 +75,8 @@ function hslToHex(h: number, s: number, l: number): string {
  *
  * 仅用于图表填充；文字/描边类配色仍走原始色值，避免影响可读性。
  */
-export function boostSaturation(hex: string, saturationFactor = 1.2, lightnessDelta = -0.06) {
-  const hsl = hexToHsl(hex)
-  if (!hsl) return hex
-
-  const [h, s, l] = hsl
+export function boostSaturation(hex: HexColor, saturationFactor = 1.2, lightnessDelta = -0.06) {
+  const [h, s, l] = hexToHsl(hex)
   const nextS = Math.min(1, s * saturationFactor)
   const nextL = Math.min(1, Math.max(0, l + lightnessDelta))
   return hslToHex(h, nextS, nextL)

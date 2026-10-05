@@ -2,6 +2,9 @@ import type { Difficulty, Language, SelectableStatus, Status } from './types'
 
 export const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5, 6, 7, 8]
 
+/** '#RRGGBB' 形式的颜色字面量：按位解析颜色的函数（如 boostSaturation）依赖这个前提 */
+export type HexColor = `#${string}`
+
 /**
  * 每一级难度给出明暗两套颜色。
  * 暗色变体不是简单提亮，而是保证与背景有足够对比度：
@@ -9,7 +12,7 @@ export const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5, 6, 7, 8]
  */
 export const DIFFICULTY_MAP: Record<
   Difficulty,
-  { label: string; color: string; darkColor: string }
+  { label: string; color: HexColor; darkColor: HexColor }
 > = {
   1: { label: '入门', color: '#fe4c61', darkColor: '#ff8f98' },
   2: { label: '普及-', color: '#f39c12', darkColor: '#f5b95c' },
@@ -24,7 +27,7 @@ export const DIFFICULTY_MAP: Record<
 export interface DifficultyStyle {
   label: string
   /** 文字与描边色 */
-  color: string
+  color: HexColor
   /** 与 color 同色系的低透明度底色（#RRGGBBAA） */
   background: string
   border: string

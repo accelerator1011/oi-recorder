@@ -102,7 +102,7 @@ function RecordForm() {
           return
         }
 
-        const problemId = problem.id ?? attempt.problemId
+        const problemId = problem.id
         const [tags, draft] = await Promise.all([
           getTagsForProblem(problemId),
           getAttemptDraft(numericId),
@@ -174,7 +174,8 @@ function RecordForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (saving || loading || loadError) return
+    // loading / loadError 时表单根本没挂载（见下方早返回），这里只需挡住重复提交
+    if (saving) return
 
     if (!title.trim()) {
       toast.error('请填写题名')

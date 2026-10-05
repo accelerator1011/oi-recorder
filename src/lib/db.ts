@@ -12,6 +12,13 @@ import type {
 } from './types'
 import { DIFFICULTIES, LANGUAGE_OPTIONS, STATUS_COLORS } from './constants'
 
+/**
+ * v1/v2 时期 attempts 行的形状：代码与笔记内联在行里，且这两个键可能整个不存在
+ * （当年用户没填内容就不会写入）。id 来自 ++id 自增主键，必然是数字，
+ * 所以迁移时不必再逐行确认它是不是 number。
+ */
+type LegacyAttempt = Omit<Attempt, 'id'> & { id: number; code?: string; notes?: string }
+
 class OIDatabase extends Dexie {
   problems!: Table<Problem>
   tags!: Table<Tag>
@@ -48,15 +55,15 @@ class OIDatabase extends Dexie {
       })
       .upgrade(async (tx) => {
         const attempts = tx.table('attempts')
-        const rows = (await attempts.toArray()) as Array<Record<string, unknown>>
-        const contents = rows
-          .filter((row) => typeof row.id === 'number')
-          .map((row) => ({
-            id: row.id as number,
-            code: typeof row.code === 'string' ? row.code : '',
-            notes: typeof row.notes === 'string' ? row.notes : '',
-          }))
-        if (contents.length) await tx.table('attemptContents').bulkPut(contents)
+        const rows = (await attempts.toArray()) as LegacyAttempt[]
+        // 缺 code/notes 的老行补空串，而不是连内容行一起丢掉
+        if (rows.length) {
+          await tx
+            .table('attemptContents')
+            .bulkPut(
+              rows.map((row) => ({ id: row.id, code: row.code ?? '', notes: row.notes ?? '' }))
+            )
+        }
         // 迁移后必须把原行里的 code/notes 删掉，否则旧数据仍会占着空间
         await attempts.toCollection().modify((row) => {
           const record = row as Record<string, unknown>
@@ -129,11 +136,12 @@ async function upsertProblemInTransaction(
   // 1) 按主键命中：只更新这三个字段，createdAt 保持原值
   if (id !== undefined) {
     const existing = await db.problems.get(id)
-    if (existing) {
-      await assertLuoguIdFree(luoguId, id, normalizeLuoguId(existing.luoguId))
-      await db.problems.update(id, fields)
-      return id
-    }
+    // 调用方 saveRecord 已在同一事务内确认过这行存在，所以这里不该「顺手新建一道题」：
+    // 静默落到新建分支会造出一道重复题目，比直接报错难查得多。
+    if (!existing) throw new Error('题目不存在或已被删除')
+    await assertLuoguIdFree(luoguId, id, normalizeLuoguId(existing.luoguId))
+    await db.problems.update(id, fields)
+    return id
   }
 
   // 2) 按洛谷题号命中：复用该题目，同时把本次提交的题名/难度写回去。
@@ -445,9 +453,12 @@ export async function exportAll(): Promise<BackupData> {
 }
 
 export async function importAll(data: BackupData): Promise<void> {
-  // 即使调用方绕过文件解析，也必须在清空数据库前拒绝无法关联内容的记录。
-  data.attempts.forEach((attempt, index) => {
+  // 即使调用方绕过文件解析，也必须在清空数据库前拒绝无法关联内容的记录：
+  // attemptContents 以 attempt id 为主键，缺 id 的记录落不了库。
+  // 校验放在这里顺手把 id 收成 number，事务里的循环就不必再判断它存不存在。
+  const backupAttempts = data.attempts.map((attempt, index) => {
     if (!Number.isInteger(attempt.id)) fail(`attempts[${index}].id 必须是整数`)
+    return { ...attempt, id: attempt.id as number }
   })
 
   await db.transaction(
@@ -474,16 +485,15 @@ export async function importAll(data: BackupData): Promise<void> {
       if (data.tags.length) await db.tags.bulkPut(data.tags)
       if (data.problemTags.length) await db.problemTags.bulkPut(data.problemTags)
 
-      if (data.attempts.length) {
+      if (backupAttempts.length) {
         const attempts: Attempt[] = []
         const contents: AttemptContent[] = []
-        for (const item of data.attempts) {
-          const { code, notes, ...meta } = item
+        for (const { code, notes, ...meta } of backupAttempts) {
           attempts.push({ ...meta, createdAt: new Date(meta.createdAt) })
-          if (meta.id !== undefined) contents.push({ id: meta.id, code, notes })
+          contents.push({ id: meta.id, code, notes })
         }
         await db.attempts.bulkPut(attempts)
-        if (contents.length) await db.attemptContents.bulkPut(contents)
+        await db.attemptContents.bulkPut(contents)
       }
     }
   )
