@@ -80,3 +80,9 @@ public/        图标与静态托管的 SPA / 缓存配置
 `parseBackupFile` 守着唯一会清空所有表的入口，校验逻辑每改一处，它的每个拒绝分支都要有对应测试。`selectors.ts` 里的统计规则由 `tests/stats.test.cjs` 覆盖，标签命名与关联规则由 `tests/tags.test.cjs` 覆盖。`utils.ts` 的纯函数由 `tests/utils.test.cjs` 覆盖：日期拼接、耗时文案、异常文案，以及 `boostSaturation` 的 HSL 行为。
 `tests/migration.test.cjs` 会真的建出 v1 与 v2 的旧库再执行升级：code/notes 迁移只会在用户已有数据上跑，导入测试覆盖不到。
 `tests/app-shell.test.cjs` 直接读 `App.tsx` 源码，断言四个包装标签的相对顺序与 `key` 的落点。做整份渲染测试代价太大（页面懒加载，还牵进 Recharts 的 ResizeObserver），结构断言是这个约束更划算的守门方式。改动 App 的嵌套结构时必须让它继续通过。
+
+## 提交信息
+
+提交信息用中文书写。类型前缀沿用 Conventional Commits 的英文标识（`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`），前缀之后写中文描述；正文按需展开，写清取舍理由与验证结论，而不是复述 diff。
+
+历史提交已统一重写为中文：改写只换 message，树、父链、作者与提交者日期逐字保留，因此改写前的提交链接与 SHA 全部失效，旧历史留在备份分支 `backup/pre-zh-rewrite`。
