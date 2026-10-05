@@ -47,84 +47,31 @@ function App() {
         >
           <div className="p-4 sm:p-8">
             <ErrorBoundary>
-              <Suspense fallback={<LoadingState />}>
-                <AnimatePresence mode="wait">
-                  <Routes location={location} key={location.pathname}>
-                    <Route
-                      path="/"
-                      element={
-                        <PageTransition>
-                          <Dashboard />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="/records"
-                      element={
-                        <PageTransition>
-                          <RecordList />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="/records/new"
-                      element={
-                        <PageTransition>
-                          <RecordForm />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="/records/:id/edit"
-                      element={
-                        <PageTransition>
-                          <RecordForm />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="/problems/:id"
-                      element={
-                        <PageTransition>
-                          <ProblemDetail />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="/tags"
-                      element={
-                        <PageTransition>
-                          <Tags />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="/backup"
-                      element={
-                        <PageTransition>
-                          <Backup />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="/settings"
-                      element={
-                        <PageTransition>
-                          <Settings />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="*"
-                      element={
-                        <PageTransition>
-                          <NotFoundView />
-                        </PageTransition>
-                      }
-                    />
-                  </Routes>
-                </AnimatePresence>
-              </Suspense>
+              {/*
+                AnimatePresence 的直接子元素必须是 PageTransition 这个 motion 组件，
+                并且它不能自己 suspend：mode="wait" 要等退场动画结束才渲染新页面，
+                若把 key 挂在 <Routes> 上、而懒加载的 Suspense 又包在 AnimatePresence 外面，
+                页面组件挂起时退场永远等不到完成，整个应用会卡在「加载中」。
+                所以顺序是：外层 AnimatePresence → PageTransition（带 key）→ Suspense → Routes。
+                initial={false} 让首次进入不播放进场动画，避免刷新时白闪一下。
+              */}
+              <AnimatePresence mode="wait" initial={false}>
+                <PageTransition key={location.pathname}>
+                  <Suspense fallback={<LoadingState />}>
+                    <Routes location={location}>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/records" element={<RecordList />} />
+                      <Route path="/records/new" element={<RecordForm />} />
+                      <Route path="/records/:id/edit" element={<RecordForm />} />
+                      <Route path="/problems/:id" element={<ProblemDetail />} />
+                      <Route path="/tags" element={<Tags />} />
+                      <Route path="/backup" element={<Backup />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="*" element={<NotFoundView />} />
+                    </Routes>
+                  </Suspense>
+                </PageTransition>
+              </AnimatePresence>
             </ErrorBoundary>
           </div>
         </main>
