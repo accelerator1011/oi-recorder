@@ -24,13 +24,20 @@ test('编辑页加载失败时没有可提交表单，重试成功后才展示�
     sonner: { toast: { error() {}, success() {} } },
     '@/lib/db': {
       isValidDateString: (date) => /^\d{4}-\d{2}-\d{2}$/.test(date),
-      getAttempt: async () => {
+      getAttemptDraft: async () => {
         if (++queries === 1) throw new Error('模拟读取失败')
-        return { problemId: 1, date: '2026-10-04', status: 'WA', language: 'C++', timeSpentMin: 30 }
+        return {
+          problemId: 1,
+          date: '2026-10-04',
+          status: 'WA',
+          language: 'C++',
+          timeSpentMin: 30,
+          code: '原代码',
+          notes: '原笔记',
+        }
       },
       getProblem: async () => ({ id: 1, title: '原题名', difficulty: 3 }),
       getTagsForProblem: async () => [],
-      getAttemptDraft: async () => ({ code: '原代码', notes: '原笔记' }),
       saveRecord: async () => {
         saves += 1
       },
