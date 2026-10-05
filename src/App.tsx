@@ -6,6 +6,9 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import Sidebar from '@/components/Sidebar'
+// 404 视图是极轻的静态组件，且 ProblemDetail 静态引用着它，lazy 拆不出包，
+// 只会让 404 路由先闪一下「加载中」。页面才值得懒加载。
+import NotFoundView from '@/components/NotFoundView'
 import LoadingState from '@/components/LoadingState'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
@@ -17,7 +20,6 @@ const ProblemDetail = lazy(() => import('@/pages/ProblemDetail'))
 const Tags = lazy(() => import('@/pages/Tags'))
 const Backup = lazy(() => import('@/pages/Backup'))
 const Settings = lazy(() => import('@/pages/Settings'))
-const NotFoundView = lazy(() => import('@/components/NotFoundView'))
 
 function App() {
   const sidebarOpen = useStore((s) => s.sidebarOpen)

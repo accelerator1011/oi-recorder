@@ -4,8 +4,8 @@ import { Plus, Search, MoreHorizontal, Pencil, Trash2, ExternalLink } from 'luci
 import { toast } from 'sonner'
 import { deleteAttempt } from '@/lib/db'
 import { DIFFICULTY_MAP, DIFFICULTIES, STATUS_OPTIONS } from '@/lib/constants'
-import { filterAttemptViews, isOnlyAttemptOfProblem } from '@/lib/selectors'
-import { useAttemptViews } from '@/hooks/useAttemptViews'
+import { filterAttemptViews, isOnlyAttemptOfProblem, joinAttempts } from '@/lib/selectors'
+import { useAttemptData } from '@/hooks/useAttemptData'
 import type { Status } from '@/lib/types'
 import { formatMinutes } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
@@ -34,22 +34,25 @@ import PageHeader from '@/components/PageHeader'
 
 function RecordList() {
   const navigate = useNavigate()
-  const data = useAttemptViews()
+  const data = useAttemptData()
 
   const [search, setSearch] = useState('')
   const [filterDifficulty, setFilterDifficulty] = useState<number | null>(null)
   const [filterStatus, setFilterStatus] = useState<Status | 'all'>('all')
   const [deleteId, setDeleteId] = useState<number | null>(null)
 
+  const views = useMemo(() => (data ? joinAttempts(data.attempts, data.index) : []), [data])
+
   const trimmedSearch = search.trim()
-  const filtered = useMemo(() => {
-    if (!data) return []
-    return filterAttemptViews(data.views, {
-      search: trimmedSearch,
-      difficulty: filterDifficulty,
-      status: filterStatus,
-    })
-  }, [data, filterDifficulty, filterStatus, trimmedSearch])
+  const filtered = useMemo(
+    () =>
+      filterAttemptViews(views, {
+        search: trimmedSearch,
+        difficulty: filterDifficulty,
+        status: filterStatus,
+      }),
+    [views, filterDifficulty, filterStatus, trimmedSearch]
+  )
 
   // 纯空白的搜索词不算「正在筛选」，否则会误报成「没有匹配的记录」
   const hasActiveFilter =
@@ -58,13 +61,13 @@ function RecordList() {
   // 删除最后一条记录会连带删掉题目和它的标签关联，确认框必须把这点说清楚
   const deleteTarget = useMemo(() => {
     if (deleteId === null || !data) return null
-    const item = data.views.find((view) => view.attempt.id === deleteId)
+    const item = views.find((view) => view.attempt.id === deleteId)
     if (!item) return null
     return {
       title: item.problem.title,
       isLastOfProblem: isOnlyAttemptOfProblem(data.attempts, item.problem.id),
     }
-  }, [deleteId, data])
+  }, [deleteId, data, views])
 
   const handleDelete = async (attemptId: number) => {
     try {
