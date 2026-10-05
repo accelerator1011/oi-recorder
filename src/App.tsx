@@ -6,6 +6,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import Sidebar from '@/components/Sidebar'
+import LoadingState from '@/components/LoadingState'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/store/useStore'
 
@@ -17,14 +18,6 @@ const Tags = lazy(() => import('@/pages/Tags'))
 const Backup = lazy(() => import('@/pages/Backup'))
 const Settings = lazy(() => import('@/pages/Settings'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
-
-function PageFallback() {
-  return (
-    <div className="flex items-center justify-center py-24">
-      <p className="text-sm text-muted-foreground">加载中...</p>
-    </div>
-  )
-}
 
 function App() {
   const sidebarOpen = useStore((s) => s.sidebarOpen)
@@ -54,7 +47,7 @@ function App() {
         >
           <div className="p-4 sm:p-8">
             <ErrorBoundary>
-              <Suspense fallback={<PageFallback />}>
+              <Suspense fallback={<LoadingState />}>
                 <AnimatePresence mode="wait">
                   <Routes location={location} key={location.pathname}>
                     <Route

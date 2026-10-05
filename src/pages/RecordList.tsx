@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import LoadingState from '@/components/LoadingState'
 
 function RecordList() {
   const navigate = useNavigate()
@@ -84,11 +85,7 @@ function RecordList() {
   }
 
   if (!joined) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <p className="text-sm text-muted-foreground">加载中...</p>
-      </div>
-    )
+    return <LoadingState />
   }
 
   return (

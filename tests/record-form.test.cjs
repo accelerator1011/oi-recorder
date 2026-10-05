@@ -46,7 +46,13 @@ test('编辑页加载失败时没有可提交表单，重试成功后才展示�
     },
   }
   const empty = () => null
-  for (const name of ['CodeEditor', 'MarkdownEditor', 'TagSelector', 'ConfirmDialog']) {
+  for (const name of [
+    'CodeEditor',
+    'MarkdownEditor',
+    'TagSelector',
+    'ConfirmDialog',
+    'LoadingState',
+  ]) {
     mocks[`@/components/${name}`] = empty
   }
   mocks['@/components/PageHeader'] = ({ actions }) => actions

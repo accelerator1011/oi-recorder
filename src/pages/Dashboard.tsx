@@ -32,6 +32,7 @@ import StatusBadge from '@/components/StatusBadge'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import EmptyState from '@/components/EmptyState'
+import LoadingState from '@/components/LoadingState'
 
 const CHART_CONFIG = {
   grid: { strokeDasharray: '3 3', stroke: 'hsl(var(--border))' },
@@ -121,13 +122,7 @@ function Dashboard() {
   }, [attempts, problems, allTags, allProblemTags, darkMode])
 
   if (!stats) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-center py-24">
-          <p className="text-sm text-muted-foreground">加载中...</p>
-        </div>
-      </div>
-    )
+    return <LoadingState />
   }
 
   if (stats.totalAttempts === 0) {

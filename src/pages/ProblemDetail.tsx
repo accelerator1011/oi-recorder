@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import EmptyState from '@/components/EmptyState'
+import LoadingState from '@/components/LoadingState'
 import NotFound from '@/pages/NotFound'
 
 // CodeMirror 相关代码约 1MB，只有真正展开某条记录时才需要。
@@ -91,11 +92,7 @@ function ProblemDetail() {
     tags === undefined ||
     contents === undefined
   ) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <p className="text-sm text-muted-foreground">加载中...</p>
-      </div>
-    )
+    return <LoadingState />
   }
 
   return (
