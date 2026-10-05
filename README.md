@@ -40,17 +40,17 @@ pnpm dev
 
 ### 常用命令
 
-| 命令                | 说明                                   |
-| ------------------- | -------------------------------------- |
-| `pnpm dev`          | 启动开发服务器                         |
-| `pnpm build`        | TypeScript 检查并构建，输出到 `dist/`  |
-| `pnpm preview`      | 本地预览已构建的生产版本               |
-| `pnpm test`         | 运行数据库与表单回归测试               |
-| `pnpm type-check`   | 单独运行 TypeScript 检查               |
-| `pnpm lint`         | Oxlint 检查                            |
-| `pnpm lint:fix`     | 自动修复支持的 Lint 问题               |
-| `pnpm format:check` | 检查源码、测试和根目录配置、文档的格式 |
-| `pnpm format`       | 格式化上述文件                         |
+| 命令                | 说明                                             |
+| ------------------- | ------------------------------------------------ |
+| `pnpm dev`          | 启动开发服务器                                   |
+| `pnpm build`        | TypeScript 检查并构建，输出到 `dist/`            |
+| `pnpm preview`      | 本地预览已构建的生产版本                         |
+| `pnpm test`         | 运行回归测试（数据库、统计、工具函数与结构约束） |
+| `pnpm type-check`   | 单独运行 TypeScript 检查                         |
+| `pnpm lint`         | Oxlint 检查                                      |
+| `pnpm lint:fix`     | 自动修复支持的 Lint 问题                         |
+| `pnpm format:check` | 检查源码、测试和根目录配置、文档的格式           |
+| `pnpm format`       | 格式化上述文件                                   |
 
 测试使用 Node.js 内置测试运行器、fake-indexeddb 和 jsdom，覆盖备份内容保留、保存回滚、并发题号写入、日期校验、编辑加载失败重试、统计口径与颜色工具函数。测试数据库与用户浏览器的数据隔离。
 
