@@ -1,0 +1,10 @@
+# 仓库统一使用 LF 行尾。
+#
+# .editorconfig 与 .prettierrc 都要求 end_of_line = lf，但 Windows 的 git
+# 默认 core.autocrlf=true，会把检出的文件改写成 CRLF，于是在 Windows 上
+# clone 下来直接跑 pnpm format:check 会误报「代码风格有问题」，
+# 而 CI（Linux）却是绿的。这里把策略落到 git 层面，两边行为才一致。
+* text=auto eol=lf
+
+# 二进制资源不做行尾转换
+*.png binary
