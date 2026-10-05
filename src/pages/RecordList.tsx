@@ -223,9 +223,7 @@ function RecordList() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => {
-                            if (attempt.id !== undefined) setDeleteId(attempt.id)
-                          }}
+                          onClick={() => setDeleteId(attempt.id)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           删除

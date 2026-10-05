@@ -113,7 +113,7 @@ function RecordForm() {
         setLuoguId(problem.luoguId ?? '')
         setTitle(problem.title)
         setDifficulty(problem.difficulty)
-        setSelectedTagIds(tags.flatMap((t) => (t.id === undefined ? [] : [t.id])))
+        setSelectedTagIds(tags.map((t) => t.id))
         setDate(attempt.date)
         setTimeSpent(String(attempt.timeSpentMin))
         setStatus(attempt.status)
@@ -159,12 +159,12 @@ function RecordForm() {
     try {
       const existing = await getProblemByLuoguId(luoguId.trim())
       if (seq !== blurSeqRef.current) return
-      if (existing?.id !== undefined) {
+      if (existing) {
         setTitle(existing.title)
         setDifficulty(existing.difficulty)
         const tags = await getTagsForProblem(existing.id)
         if (seq !== blurSeqRef.current) return
-        setSelectedTagIds(tags.flatMap((t) => (t.id === undefined ? [] : [t.id])))
+        setSelectedTagIds(tags.map((t) => t.id))
         touch()
       }
     } catch {

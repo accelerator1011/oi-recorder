@@ -1,20 +1,14 @@
-import type { Attempt, Difficulty, Problem, ProblemTag, Status, Tag } from './types'
+import type { Attempt, Difficulty, Problem, ProblemTag, Status, Tag, WithId } from './types'
 import { toLocalDateString } from './utils'
 
 /**
  * 把行数组转成 id → 行 的索引。
- * 顺带处理 id 可选这件事：没有 id 的行（理论上不会出现）直接跳过，
- * 调用方就不必到处写 `id!` 非空断言。
  *
- * 值类型收窄成 `T & { id: number }`：进索引的行一定带着 id，
- * 下游拼 URL 或做 key 时不必再判断一次。
+ * 入参来自 db.ts 的读取函数，每行都带主键，所以这里直接建 Map 即可，
+ * 不需要（也不应该）再逐行判断 id 存不存在。
  */
-export function indexById<T extends { id?: number }>(rows: T[]): Map<number, T & { id: number }> {
-  const map = new Map<number, T & { id: number }>()
-  for (const row of rows) {
-    if (row.id !== undefined) map.set(row.id, row as T & { id: number })
-  }
-  return map
+export function indexById<T extends { id: number }>(rows: T[]): Map<number, T> {
+  return new Map(rows.map((row) => [row.id, row]))
 }
 
 /** 按 problemId 归组题目-标签关联行 */
@@ -35,23 +29,23 @@ export function groupProblemTags(rows: ProblemTag[]): Map<number, ProblemTag[]> 
  * 首页与列表页共用的题目侧索引，避免两处各写一遍 join。
  */
 export interface ProblemIndex {
-  problemMap: Map<number, Problem & { id: number }>
-  tagMap: Map<number, Tag & { id: number }>
+  problemMap: Map<number, WithId<Problem>>
+  tagMap: Map<number, WithId<Tag>>
   problemTagRows: Map<number, ProblemTag[]>
   /** problemId → 该题目的标签列表 */
-  tagsByProblemId: Map<number, Tag[]>
+  tagsByProblemId: Map<number, WithId<Tag>[]>
 }
 
 export function buildProblemIndex(
-  problems: Problem[],
-  tags: Tag[],
-  problemTags: ProblemTag[]
+  problems: WithId<Problem>[],
+  tags: WithId<Tag>[],
+  problemTags: WithId<ProblemTag>[]
 ): ProblemIndex {
   const problemMap = indexById(problems)
   const tagMap = indexById(tags)
   const problemTagRows = groupProblemTags(problemTags)
 
-  const tagsByProblemId = new Map<number, Tag[]>()
+  const tagsByProblemId = new Map<number, WithId<Tag>[]>()
   for (const [problemId, rows] of problemTagRows) {
     tagsByProblemId.set(
       problemId,
@@ -65,19 +59,19 @@ export function buildProblemIndex(
   return { problemMap, tagMap, problemTagRows, tagsByProblemId }
 }
 
-export function tagsOf(index: ProblemIndex, problemId: number): Tag[] {
+export function tagsOf(index: ProblemIndex, problemId: number): WithId<Tag>[] {
   return index.tagsByProblemId.get(problemId) ?? []
 }
 
 /** 列表页视图：一条记录 + 它所属的题目 + 题目标签 */
 export interface AttemptView {
-  attempt: Attempt
-  problem: Problem & { id: number }
-  tags: Tag[]
+  attempt: WithId<Attempt>
+  problem: WithId<Problem>
+  tags: WithId<Tag>[]
 }
 
 /** 只保留能关联到题目的记录；找不到题目的孤立记录会被跳过 */
-export function joinAttempts(attempts: Attempt[], index: ProblemIndex): AttemptView[] {
+export function joinAttempts(attempts: WithId<Attempt>[], index: ProblemIndex): AttemptView[] {
   const views: AttemptView[] = []
   for (const attempt of attempts) {
     const problem = index.problemMap.get(attempt.problemId)
@@ -113,7 +107,10 @@ export interface ProblemStats {
   acByDate: Map<string, number>
 }
 
-export function computeProblemStats(attempts: Attempt[], index: ProblemIndex): ProblemStats {
+export function computeProblemStats(
+  attempts: WithId<Attempt>[],
+  index: ProblemIndex
+): ProblemStats {
   const problemIdsWithAttempts = new Set<number>()
   const firstAcDateByProblemId = new Map<number, string>()
   let totalTimeMin = 0
@@ -189,13 +186,11 @@ export function buildWeeklyTrend(acByDate: Map<string, number>, today: Date): We
 
 /** 最近记录：日期倒序，同日按 id 倒序（后建的在前），只保留能关联到题目的记录 */
 export function buildRecentViews(
-  attempts: Attempt[],
+  attempts: WithId<Attempt>[],
   index: ProblemIndex,
   limit = 5
 ): AttemptView[] {
-  const sorted = attempts
-    .slice()
-    .sort((a, b) => b.date.localeCompare(a.date) || (b.id ?? 0) - (a.id ?? 0))
+  const sorted = attempts.slice().sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
   return joinAttempts(sorted, index).slice(0, limit)
 }
 

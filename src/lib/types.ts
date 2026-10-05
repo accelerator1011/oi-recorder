@@ -11,6 +11,15 @@ export type Status = SelectableStatus | '进行中'
 
 export type Language = 'C++' | 'C' | 'Python' | 'Java' | 'Pascal'
 
+/**
+ * 从数据库读出的行必然带自增主键。
+ *
+ * 下面几个接口上的 `id?` 只是插入路径的需要（新行还没有 id），
+ * 读取路径不该把这份不确定性扩散出去：db.ts 的读取函数用 `WithId`
+ * 收窄返回类型，调用方就不必在每个使用点重新怀疑 id 存不存在。
+ */
+export type WithId<T> = T & { id: number }
+
 export interface Problem {
   id?: number
   luoguId?: string

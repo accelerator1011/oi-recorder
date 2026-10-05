@@ -65,7 +65,7 @@ public/        Icons and static-host SPA/cache configuration
 - Keep unsaved-change protection for internal navigation and browser unload. A failed edit load must show an error/retry state and must not expose a submittable default form.
 - `ConfirmDialog` catches errors from `onConfirm` itself, shows the reason and stays open. Callers may still handle their own errors, but a rejection must never surface as an unhandled promise rejection.
 - Every interactive control needs an accessible name. Icon-only buttons get `aria-label`; CodeMirror's editable area needs `EditorView.contentAttributes`; the tag input is a `combobox` whose `aria-expanded` must reflect whether the dropdown is actually visible.
-- Component modules should export components and types only. Check persisted optional IDs before using them, and avoid mutating query results when building view data.
+- Component modules should export components and types only. Rows read from the database always carry their auto-increment ID: the read functions in `db.ts` return `WithId<T>`, so no call site should re-check whether a persisted ID exists. Avoid mutating query results when building view data.
 
 ## Regression tests
 
