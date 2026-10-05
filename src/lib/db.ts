@@ -8,6 +8,7 @@ import type {
   ProblemTag,
   Status,
   Tag,
+  WithId,
 } from './types'
 import { DIFFICULTIES, LANGUAGE_OPTIONS, STATUS_COLORS } from './constants'
 
@@ -70,8 +71,12 @@ export const db = new OIDatabase()
 
 /* ── Problem CRUD ─────────────────────────────────────── */
 
-export async function getAllProblems(): Promise<Problem[]> {
-  return db.problems.toArray()
+// 下面所有读取函数都返回 WithId：库里的行必然带自增主键，
+// 接口上的 `id?` 只服务于插入路径。这些断言集中标出「信任数据层」
+// 的唯一位置，调用方拿到手就是确定的 id。
+
+export async function getAllProblems(): Promise<WithId<Problem>[]> {
+  return db.problems.toArray() as Promise<WithId<Problem>[]>
 }
 
 export function normalizeLuoguId(value: string | undefined): string | undefined {
@@ -83,10 +88,10 @@ export function normalizeLuoguId(value: string | undefined): string | undefined 
  * 按洛谷题号查找题目。返回最早创建（id 最小）的一条，保证结果稳定；
  * 空串/空白视为「未填写题号」，直接返回 undefined。
  */
-export async function getProblemByLuoguId(luoguId: string): Promise<Problem | undefined> {
+export async function getProblemByLuoguId(luoguId: string): Promise<WithId<Problem> | undefined> {
   const key = normalizeLuoguId(luoguId)
   if (!key) return undefined
-  const matches = await db.problems.where('luoguId').equals(key).sortBy('id')
+  const matches = (await db.problems.where('luoguId').equals(key).sortBy('id')) as WithId<Problem>[]
   return matches[0]
 }
 
@@ -135,7 +140,7 @@ async function upsertProblemInTransaction(
   //    旧实现在这里直接 `return existing.id`，用户刚改好的题名和难度会被静默丢弃。
   if (luoguId) {
     const existing = await getProblemByLuoguId(luoguId)
-    if (existing?.id !== undefined) {
+    if (existing) {
       await db.problems.update(existing.id, fields)
       return existing.id
     }
@@ -145,14 +150,14 @@ async function upsertProblemInTransaction(
   return db.problems.add({ ...fields, createdAt: new Date() })
 }
 
-export async function getProblem(id: number): Promise<Problem | undefined> {
-  return db.problems.get(id)
+export async function getProblem(id: number): Promise<WithId<Problem> | undefined> {
+  return db.problems.get(id) as Promise<WithId<Problem> | undefined>
 }
 
 /* ── Tag CRUD ─────────────────────────────────────────── */
 
-export async function getAllTags(): Promise<Tag[]> {
-  return db.tags.orderBy('name').toArray()
+export async function getAllTags(): Promise<WithId<Tag>[]> {
+  return db.tags.orderBy('name').toArray() as Promise<WithId<Tag>[]>
 }
 
 export async function createTag(name: string): Promise<number> {
@@ -162,7 +167,7 @@ export async function createTag(name: string): Promise<number> {
   // 两个入口同时新建同名标签时，后到的那个必须拿到已有 id 而不是撞约束报错。
   return db.transaction('rw', db.tags, async () => {
     const existing = await db.tags.where('name').equals(trimmed).first()
-    if (existing?.id !== undefined) return existing.id
+    if (existing) return existing.id
     return db.tags.add({ name: trimmed })
   })
 }
@@ -207,15 +212,15 @@ export async function getTagUsageCounts(): Promise<Map<number, number>> {
 
 /* ── ProblemTags ──────────────────────────────────────── */
 
-export async function getAllProblemTags(): Promise<ProblemTag[]> {
-  return db.problemTags.toArray()
+export async function getAllProblemTags(): Promise<WithId<ProblemTag>[]> {
+  return db.problemTags.toArray() as Promise<WithId<ProblemTag>[]>
 }
 
-export async function getTagsForProblem(problemId: number): Promise<Tag[]> {
+export async function getTagsForProblem(problemId: number): Promise<WithId<Tag>[]> {
   const ptRows = await db.problemTags.where('problemId').equals(problemId).toArray()
   if (ptRows.length === 0) return []
   const tagIds = ptRows.map((r) => r.tagId)
-  return db.tags.where('id').anyOf(tagIds).toArray()
+  return db.tags.where('id').anyOf(tagIds).toArray() as Promise<WithId<Tag>[]>
 }
 
 export async function setProblemTags(problemId: number, tagIds: number[]): Promise<void> {
@@ -279,8 +284,11 @@ export async function saveRecord(
   )
 }
 
-export async function getAttemptsByProblemId(problemId: number): Promise<Attempt[]> {
-  const arr = await db.attempts.where('problemId').equals(problemId).sortBy('date')
+export async function getAttemptsByProblemId(problemId: number): Promise<WithId<Attempt>[]> {
+  const arr = (await db.attempts
+    .where('problemId')
+    .equals(problemId)
+    .sortBy('date')) as WithId<Attempt>[]
   arr.reverse()
   return arr
 }
@@ -350,8 +358,8 @@ export async function deleteAttempt(id: number): Promise<void> {
   )
 }
 
-export async function getAttempt(id: number): Promise<Attempt | undefined> {
-  return db.attempts.get(id)
+export async function getAttempt(id: number): Promise<WithId<Attempt> | undefined> {
+  return db.attempts.get(id) as Promise<WithId<Attempt> | undefined>
 }
 
 export async function getAttemptContent(id: number): Promise<AttemptContent | undefined> {
@@ -373,8 +381,8 @@ export async function getAttemptDraft(id: number): Promise<AttemptDraft | undefi
   }
 }
 
-export async function getAllAttempts(): Promise<Attempt[]> {
-  return db.attempts.orderBy('date').reverse().toArray()
+export async function getAllAttempts(): Promise<WithId<Attempt>[]> {
+  return db.attempts.orderBy('date').reverse().toArray() as Promise<WithId<Attempt>[]>
 }
 
 /* ── Counts ───────────────────────────────────────────── */
@@ -421,18 +429,18 @@ export async function exportAll(): Promise<BackupData> {
     db.attemptContents.toArray(),
   ])
   const contentMap = new Map(contents.map((row) => [row.id, row]))
+  // 导出的每条记录都来自 attempts 表，必然带 id，因此总能对上 attemptContents。
+  const attemptRows = attempts as WithId<Attempt>[]
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
     problems,
     tags,
     problemTags,
-    attempts: attempts.map((a) =>
-      Object.assign({}, a, {
-        code: (a.id === undefined ? undefined : contentMap.get(a.id)?.code) ?? '',
-        notes: (a.id === undefined ? undefined : contentMap.get(a.id)?.notes) ?? '',
-      })
-    ),
+    attempts: attemptRows.map((a) => {
+      const content = contentMap.get(a.id)
+      return Object.assign({}, a, { code: content?.code ?? '', notes: content?.notes ?? '' })
+    }),
   }
 }
 

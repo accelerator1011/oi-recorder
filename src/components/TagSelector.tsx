@@ -3,7 +3,7 @@ import { X, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createTag, getAllTags } from '@/lib/db'
-import type { Tag } from '@/lib/types'
+import type { Tag, WithId } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
@@ -20,17 +20,14 @@ function TagSelector({ selectedIds, onChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const selectedTags = useMemo(
-    () => allTags.filter((t) => t.id !== undefined && selectedIds.includes(t.id)),
+    () => allTags.filter((t) => selectedIds.includes(t.id)),
     [allTags, selectedIds]
   )
 
   const availableTags = useMemo(
     () =>
       allTags.filter(
-        (t) =>
-          t.id !== undefined &&
-          !selectedIds.includes(t.id) &&
-          t.name.toLowerCase().includes(input.toLowerCase())
+        (t) => !selectedIds.includes(t.id) && t.name.toLowerCase().includes(input.toLowerCase())
       ),
     [allTags, selectedIds, input]
   )
@@ -39,13 +36,11 @@ function TagSelector({ selectedIds, onChange }: Props) {
   const dropdownVisible = showDropdown && Boolean(input || availableTags.length > 0)
 
   const handleToggle = useCallback(
-    (tag: Tag) => {
-      const tagId = tag.id
-      if (tagId === undefined) return
-      if (selectedIds.includes(tagId)) {
-        onChange(selectedIds.filter((id) => id !== tagId))
+    (tag: WithId<Tag>) => {
+      if (selectedIds.includes(tag.id)) {
+        onChange(selectedIds.filter((id) => id !== tag.id))
       } else {
-        onChange([...selectedIds, tagId])
+        onChange([...selectedIds, tag.id])
       }
     },
     [selectedIds, onChange]

@@ -217,15 +217,3 @@ test('筛选命中题名、题号与标签，忽略大小写', () => {
   // 条件叠加必须同时满足
   assert.equal(filterAttemptViews(views, { difficulty: 3, status: 'WA' }).length, 0)
 })
-
-test('缺少 id 的题目行不进索引，也不会拼出坏掉的视图', () => {
-  const index = buildProblemIndex(
-    [{ title: '无 id', difficulty: 3, createdAt: new Date() }],
-    [],
-    []
-  )
-
-  assert.equal(index.problemMap.size, 0)
-  assert.deepEqual(joinAttempts([attempt(1, 7, '2026-10-01')], index), [])
-  assert.deepEqual(computeProblemStats([attempt(1, 7, '2026-10-01')], index).acProblemCount, 0)
-})

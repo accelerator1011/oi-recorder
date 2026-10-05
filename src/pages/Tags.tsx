@@ -128,7 +128,6 @@ function Tags() {
           <div className="divide-y divide-border">
             {allTags.map((tag) => {
               const tagId = tag.id
-              if (tagId === undefined) return null
               const count = usageCounts?.get(tagId) ?? 0
               const isEditing = editingId === tagId
               return (

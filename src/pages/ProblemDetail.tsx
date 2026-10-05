@@ -138,7 +138,6 @@ function ProblemDetail() {
             做题记录 ({attempts.length})
           </h2>
           {attempts.map((a) => {
-            if (a.id === undefined) return null
             const attemptId = a.id
             const isExpanded = expandedAttempts.has(attemptId)
             const content = contents.get(attemptId)
