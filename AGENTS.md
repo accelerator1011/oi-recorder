@@ -67,6 +67,7 @@ public/        图标与静态托管的 SPA / 缓存配置
 - 题目行已经不存在的记录属于孤立记录：所有题目级统计都要排除它，否则「已通过」卡片会和图表对不上。记录数与总耗时仍然照算。
 - 搜索词先 trim 再过滤，纯空白输入表示「不筛选」，而不是把列表过滤成空。
 - 保留对应用内跳转与刷新/关闭页面的未保存修改拦截。编辑页加载失败时必须显示错误与重试入口，且不能暴露一个可提交的默认表单。
+- `App.tsx` 的嵌套顺序不能调换：`AnimatePresence` → 带 `key` 的 `PageTransition` → `Suspense` → `<Routes>`。`mode="wait"` 要等退场动画结束才渲染新页面，若 `key` 挂在 `<Routes>` 上、而懒加载的 `Suspense` 又包在 `AnimatePresence` 外面，页面组件挂起时退场永远等不到完成，整个应用会卡死在「加载中」。这个症状不产生任何 console 报错，`pnpm test` 也照样全绿，只有实机打开才看得出来。
 - `ConfirmDialog` 自己兜住 `onConfirm` 抛出的错误，展示原因并保持对话框打开。调用方仍可自行处理错误，但 rejection 绝不能变成未处理的 promise rejection。
 - 每个可交互控件都要有无障碍名称。只有图标的按钮加 `aria-label`；CodeMirror 的可编辑区要设置 `EditorView.contentAttributes`；标签输入框是 `combobox`，它的 `aria-expanded` 必须反映下拉是否真的可见。
 - 组件模块只导出组件与类型。从数据库读出的行必然带着自增主键：`db.ts` 的读取函数返回 `WithId<T>`，调用方不该在每个使用点重新怀疑 id 存不存在。构建视图数据时不要改动查询结果。

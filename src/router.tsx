@@ -8,5 +8,4 @@ import App from './App'
  * 具体的页面路由仍然由 App 内部的 <Routes> 负责，这样 AnimatePresence 的
  * 过渡动画行为与迁移前完全一致；父路由必须写成 `'*'`，否则内部 <Routes>
  * 在深层路径（如 /records/1/edit）下不会被匹配。
- */
-export const router = createBrowserRouter([{ path: '*', element: <App /> }])
+ */ export const router = createBrowserRouter([{ path: '*', element: <App /> }])
