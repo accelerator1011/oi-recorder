@@ -54,6 +54,14 @@ test('编辑已删除记录时拒绝保存，不产生孤立题目', async (t) =
   assert.equal((await api.getAllProblems()).length, 0)
 })
 
+test('按已消失的题目 id 更新时明确报错，而不是顺手新建一道题', async (t) => {
+  const api = loadDatabase(t)
+  const id = await api.upsertProblem(problem)
+  await api.db.problems.delete(id)
+  await assert.rejects(api.upsertProblem({ ...problem, title: 'B' }, id), /题目不存在或已被删除/)
+  assert.equal((await api.getAllProblems()).length, 0)
+})
+
 test('两个数据库连接并发新建同一题号，复用同一道题', async (t) => {
   const name = `concurrency-test-${crypto.randomUUID()}`
   const a = loadDatabase(t, name)

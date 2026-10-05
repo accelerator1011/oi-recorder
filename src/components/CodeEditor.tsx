@@ -14,6 +14,9 @@ interface Props {
   readOnly?: boolean
 }
 
+// 已知缺口：Java 与 Pascal 没有装对应的语言包，选到这两种语言时编辑器会退化成
+// 无高亮的纯文本。这是缺依赖，不是「不支持该语言」——补上
+// @codemirror/lang-java 与 @codemirror/legacy-modes 的 pascal 即可，键集随之扩到 5 个。
 const LANG_EXTENSIONS: Partial<Record<Language, () => Extension>> = {
   'C++': () => cpp(),
   C: () => cpp(),

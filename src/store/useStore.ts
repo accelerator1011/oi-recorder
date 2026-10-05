@@ -35,15 +35,9 @@ export const useStore = create<UIState>()(
         defaultLanguage: s.defaultLanguage,
         codeFontSize: s.codeFontSize,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          document.documentElement.classList.toggle('dark', state.darkMode)
-          const meta = document.querySelector('meta[name="theme-color"]')
-          if (meta) {
-            meta.setAttribute('content', state.darkMode ? '#0f172a' : '#ffffff')
-          }
-        }
-      },
+      // 这里不再重复应用主题：localStorage 是同步存储，persist 在 create() 期间
+      // 就完成 rehydrate，App 首个 useLayoutEffect 同样在 paint 前跑，
+      // 早期版本两处各写一份只是多改一次属性。改主题的唯一入口在 App.tsx。
     }
   )
 )

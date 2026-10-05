@@ -31,6 +31,8 @@ function App() {
   const darkMode = useStore((s) => s.darkMode)
   const location = useLocation()
 
+  // 应用主题的唯一入口：store 的 rehydrate 是同步的，首帧就能拿到正确的 darkMode，
+  // 而 useLayoutEffect 在 paint 前执行，所以这里也覆盖了刷新时的首次渲染。
   useLayoutEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
     const meta = document.querySelector('meta[name="theme-color"]')

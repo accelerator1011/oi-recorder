@@ -112,20 +112,22 @@ export function computeProblemStats(
   index: ProblemIndex
 ): ProblemStats {
   const problemIdsWithAttempts = new Set<number>()
-  const firstAcDateByProblemId = new Map<number, string>()
+  /** problemId → 首次 AC 的日期与题目行；日期和题目绑在一起存，后面不必再回查一次 */
+  const firstAcByProblemId = new Map<number, { date: string; problem: WithId<Problem> }>()
   let totalTimeMin = 0
 
   for (const attempt of attempts) {
     totalTimeMin += attempt.timeSpentMin
     // 题目行已不存在的孤立记录不参与题目级统计。
     // 否则「已通过」卡片会计数而难度/算法图表直接跳过同一题，两者对不上。
-    if (!index.problemMap.has(attempt.problemId)) continue
+    const problem = index.problemMap.get(attempt.problemId)
+    if (!problem) continue
     problemIdsWithAttempts.add(attempt.problemId)
     if (attempt.status !== 'AC') continue
-    const prev = firstAcDateByProblemId.get(attempt.problemId)
+    const prev = firstAcByProblemId.get(attempt.problemId)
     // date 是定长的 YYYY-MM-DD 字符串，字典序即时间序，可直接比较
-    if (prev === undefined || attempt.date < prev) {
-      firstAcDateByProblemId.set(attempt.problemId, attempt.date)
+    if (prev === undefined || attempt.date < prev.date) {
+      firstAcByProblemId.set(attempt.problemId, { date: attempt.date, problem })
     }
   }
 
@@ -133,25 +135,25 @@ export function computeProblemStats(
   const acByTagName = new Map<string, number>()
   const acByDate = new Map<string, number>()
 
-  for (const [problemId, date] of firstAcDateByProblemId) {
-    const problem = index.problemMap.get(problemId)
-    if (!problem) continue
+  for (const { date, problem } of firstAcByProblemId.values()) {
     acByDifficulty.set(problem.difficulty, (acByDifficulty.get(problem.difficulty) ?? 0) + 1)
     acByDate.set(date, (acByDate.get(date) ?? 0) + 1)
-    for (const tag of tagsOf(index, problemId)) {
+    for (const tag of tagsOf(index, problem.id)) {
       acByTagName.set(tag.name, (acByTagName.get(tag.name) ?? 0) + 1)
     }
   }
 
   const totalProblems = problemIdsWithAttempts.size
-  const acProblemCount = firstAcDateByProblemId.size
+  const acProblemCount = firstAcByProblemId.size
   return {
     totalProblems,
     totalAttempts: attempts.length,
     totalTimeMin,
     acProblemCount,
     todoCount: totalProblems - acProblemCount,
-    firstAcDateByProblemId,
+    firstAcDateByProblemId: new Map(
+      [...firstAcByProblemId].map(([problemId, entry]) => [problemId, entry.date])
+    ),
     acByDifficulty,
     acByTagName,
     acByDate,
