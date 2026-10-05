@@ -3,7 +3,11 @@ import { FileQuestion } from 'lucide-react'
 import EmptyState from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
 
-function NotFound() {
+/**
+ * 404 视图。路由的 * 分支与「题目已被删除」的详情页共用同一份，
+ * 所以它住在 components/ 而不是 pages/ —— 页面之间不横向依赖。
+ */
+function NotFoundView() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
       <EmptyState
@@ -20,4 +24,4 @@ function NotFound() {
   )
 }
 
-export default NotFound
+export default NotFoundView

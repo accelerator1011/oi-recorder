@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import EmptyState from '@/components/EmptyState'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import PageHeader from '@/components/PageHeader'
 import LoadingState from '@/components/LoadingState'
 import { getErrorMessage } from '@/lib/utils'
 
@@ -69,13 +70,15 @@ function Tags() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">标签管理</h1>
-        <Button size="sm" onClick={() => setAdding(true)}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          新建标签
-        </Button>
-      </div>
+      <PageHeader
+        title="标签管理"
+        actions={
+          <Button size="sm" onClick={() => setAdding(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            新建标签
+          </Button>
+        }
+      />
 
       {adding && (
         <Card className="p-4">

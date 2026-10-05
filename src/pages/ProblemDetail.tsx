@@ -2,10 +2,6 @@ import { useState, useCallback, lazy, Suspense } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, ChevronDown, ChevronRight, Pencil, Clock, Code2 } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
 import {
   getProblem,
   getAttemptsByProblemId,
@@ -13,6 +9,7 @@ import {
   getTagsForProblem,
 } from '@/lib/db'
 import type { AttemptContent } from '@/lib/types'
+import { formatMinutes } from '@/lib/utils'
 import DifficultyBadge from '@/components/DifficultyBadge'
 import StatusBadge from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
@@ -21,7 +18,8 @@ import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import EmptyState from '@/components/EmptyState'
 import LoadingState from '@/components/LoadingState'
-import NotFound from '@/pages/NotFound'
+import MarkdownView from '@/components/MarkdownView'
+import NotFoundView from '@/components/NotFoundView'
 
 // CodeMirror 相关代码约 1MB，只有真正展开某条记录时才需要。
 // 静态引入会让「打开题目详情」这个最常用的动作也去下载整个编辑器。
@@ -83,7 +81,7 @@ function ProblemDetail() {
   }, [location.key, navigate])
 
   if (problem === null) {
-    return <NotFound />
+    return <NotFoundView />
   }
 
   if (
@@ -158,7 +156,7 @@ function ProblemDetail() {
                     <span className="text-sm text-muted-foreground">{a.date}</span>
                     <span className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
-                      {a.timeSpentMin} min
+                      {formatMinutes(a.timeSpentMin)}
                     </span>
                     <span className="text-sm text-muted-foreground">{a.language}</span>
                   </button>
@@ -203,14 +201,7 @@ function ProblemDetail() {
                         <div className="border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
                           笔记
                         </div>
-                        <div className="prose prose-sm max-w-none p-4 dark:prose-invert">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm, remarkMath]}
-                            rehypePlugins={[rehypeKatex]}
-                          >
-                            {content.notes}
-                          </ReactMarkdown>
-                        </div>
+                        <MarkdownView content={content.notes} className="p-4" />
                       </div>
                     ) : null}
                     {!content?.code && !content?.notes && (

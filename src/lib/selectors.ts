@@ -58,7 +58,7 @@ export function buildProblemIndex(
   return { problemMap, tagMap, tagsByProblemId }
 }
 
-export function tagsOf(index: ProblemIndex, problemId: number): WithId<Tag>[] {
+function tagsOf(index: ProblemIndex, problemId: number): WithId<Tag>[] {
   return index.tagsByProblemId.get(problemId) ?? []
 }
 
@@ -159,7 +159,7 @@ export function computeProblemStats(
   }
 }
 
-export interface WeeklyTrendPoint {
+interface WeeklyTrendPoint {
   /** X 轴文案，如 10/4 */
   label: string
   /** 对应的本地 YYYY-MM-DD */
@@ -195,8 +195,17 @@ export function buildRecentViews(
   return joinAttempts(sorted, index).slice(0, limit)
 }
 
+/**
+ * 这个题目是否只剩这一条记录。
+ * 删掉它会连带删掉题目本身与它的标签关联（见 db.ts 的 deleteAttempt），
+ * 所以确认框必须先问一句。口径放在这里，页面不必自己数同题记录。
+ */
+export function isOnlyAttemptOfProblem(attempts: WithId<Attempt>[], problemId: number): boolean {
+  return attempts.filter((a) => a.problemId === problemId).length <= 1
+}
+
 /** 列表页的搜索与筛选条件 */
-export interface AttemptFilter {
+interface AttemptFilter {
   search?: string
   difficulty?: Difficulty | number | null
   status?: Status | 'all'
